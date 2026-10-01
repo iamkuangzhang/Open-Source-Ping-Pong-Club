@@ -1,0 +1,16 @@
+.env
+.env.local
+.env.dev.local
+backend/phase0-startup.log
+.idea/
+.vscode/
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/unpackage/
+*.log
+.release-rc/
+.ui-v21/
+.ui-v22/
+.playwright-mcp/
+docs.zip

@@ -1,0 +1,32 @@
+{
+  "members": ["张三", "李四", "王五", "赵六", "陈晨", "林晓", "周扬", "沈悦"],
+  "college": "开源乓协演示数据",
+  "major": "乒乓球爱好者",
+  "reason": "V2.2 本机视觉验收",
+  "competitionDescription": "开源乓协本机 UI 演示赛事",
+  "defaultLocation": "体育馆三楼",
+  "finishedCompetitions": ["秋季公开积分赛", "国庆友谊赛"],
+  "openCompetitions": [
+    { "title": "十月积分挑战赛", "type": "RATED", "format": "SINGLE_ELIMINATION", "max": 32 },
+    { "title": "周末新生交流赛", "type": "DAILY", "format": "ROUND_ROBIN", "max": 16 },
+    { "title": "晚间练习赛", "type": "DAILY", "format": "SINGLE_ELIMINATION", "max": 16 }
+  ],
+  "announcements": [
+    { "title": "十月训练与积分赛安排", "content": "十月训练时段与积分赛事已经开放，请留意报名截止时间。" },
+    { "title": "周末场地调整通知", "content": "本周末训练调整至体育馆三楼，请提前十分钟到场。" },
+    { "title": "秋季积分赛报名开启", "content": "秋季公开积分赛现已开放报名，欢迎正式成员参加。" }
+  ],
+  "playPosts": [
+    { "title": "周五晚体育馆单打练习", "location": "体育馆三楼", "max": 4 },
+    { "title": "周末下午自由约球", "location": "体育馆一号场", "max": 6 },
+    { "title": "新生练球局", "location": "校体中心 2 号台", "max": 4 }
+  ],
+  "playDescription": "不限水平，按时到场即可。",
+  "marketPosts": [
+    { "title": "VIS 底板", "price": "650", "content": "9成新 · 校内面交" },
+    { "title": "VISCARIA FL", "price": "720", "content": "轻微使用痕迹 · 校内面交" },
+    { "title": "D09C 胶皮", "price": "260", "content": "试打一次 · 校内面交" },
+    { "title": "狂飙 3 Neo", "price": "120", "content": "未灌胶 · 校内面交" }
+  ],
+  "contact": "站内通知"
+}
