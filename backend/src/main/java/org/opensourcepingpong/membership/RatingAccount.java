@@ -1,0 +1,3 @@
+package org.opensourcepingpong.membership;
+import jakarta.persistence.*; import java.time.*; import java.util.*;
+@Entity @Table(name="rating_accounts") public class RatingAccount { @Id @Column(name="user_id") private UUID userId; @Column(name="current_rating") private int currentRating; @Column(name="highest_rating") private int highestRating; @Column(name="rated_matches") private int ratedMatches; private int wins,losses; @Version private long version; @Column(name="created_at") private Instant createdAt; @Column(name="updated_at") private Instant updatedAt; protected RatingAccount(){} public RatingAccount(UUID id){userId=id;currentRating=highestRating=1400;createdAt=Instant.now();updatedAt=createdAt;} public int getCurrentRating(){return currentRating;} }

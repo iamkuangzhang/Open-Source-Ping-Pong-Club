@@ -1,0 +1,118 @@
+$primary: #173f35;
+$primary-soft: #eef3f0;
+$accent: #c9a742;
+$accent-soft: #faf3d7;
+$background: #f5f6f4;
+$surface: #ffffff;
+$text: #18201d;
+$secondary: #66706b;
+$border: #e2e7e3;
+$danger: #c64d47;
+$success: #3e7c63;
+
+/* H5 会按视口写入根字号，V2 的 rem 固定采用 16px 设计基线。 */
+html { font-size: 16px !important; }
+
+body { min-height: 100vh; margin: 0; background: $background; }
+
+page {
+  min-height: 100%;
+  color: $text;
+  background: $background;
+  font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+}
+
+view, text, input, textarea, button, picker, scroll-view, uni-view, uni-text, uni-input, uni-textarea, uni-button, uni-picker, uni-scroll-view { box-sizing: border-box; }
+button, input, textarea, uni-button, uni-input, uni-textarea { font: inherit; }
+button, uni-button { margin: 0; border: 0; }
+button::after { border: 0; }
+
+.app-shell {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 30rem;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 1rem calc(6.25rem + env(safe-area-inset-bottom));
+  background: $background;
+  overflow-x: hidden;
+}
+
+.app-shell.no-tabs { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+.page-content { padding-top: 1rem; }
+.section { margin-top: 1.5rem; }
+.section-panel { padding: 1rem; background: $surface; border: 1px solid $border; border-radius: .875rem; }
+.section-state { margin-top: .75rem; }
+.surface { background: $surface; border: 1px solid $border; border-radius: .875rem; }
+.divider-list { background: $surface; border-top: 1px solid $border; border-bottom: 1px solid $border; }
+.list-row { display: flex; min-height: 3.5rem; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid $border; }
+.list-row:last-child { border-bottom: 0; }
+.row-main { min-width: 0; flex: 1; }
+.row-title { display: block; color: $text; font-size: 1rem; font-weight: 700; line-height: 1.4; }
+.row-meta, .muted { display: block; margin-top: .2rem; color: $secondary; font-size: .8125rem; line-height: 1.5; }
+.caption { color: $secondary; font-size: .75rem; line-height: 1.4; }
+.page-title { display: block; font-size: 1.375rem; font-weight: 800; line-height: 1.25; letter-spacing: -.02em; }
+.section-title { display: block; font-size: 1.0625rem; font-weight: 700; line-height: 1.35; }
+.card-title { display: block; font-size: 1rem; font-weight: 700; line-height: 1.4; }
+.body-copy { color: $text; font-size: .875rem; line-height: 1.65; }
+
+.btn { display: inline-flex; box-sizing: border-box; min-width: 2.75rem; min-height: 2.75rem; align-items: center; justify-content: center; margin: 0; padding: 0 1rem; border-radius: .6875rem; font-size: .875rem; font-weight: 700; line-height: 1; transition: opacity .18s ease, transform .18s ease; }
+.btn:active { transform: scale(.98); }
+.btn[disabled] { color: #9da5a1; background: #eceeed; opacity: 1; }
+.btn-primary { color: #fff; background: $primary; }
+.btn-secondary { color: $primary; background: $primary-soft; }
+.btn-text { color: $primary; background: transparent; padding-inline: .5rem; }
+.btn-danger { color: #fff; background: $danger; }
+.btn-block { width: 100%; }
+.btn-small { min-height: 2.25rem; padding-inline: .8rem; font-size: .8125rem; }
+.link { color: $primary; font-weight: 700; }
+
+.field { margin-bottom: 1rem; }
+.field-label { display: block; margin-bottom: .45rem; color: #444d49; font-size: .8125rem; font-weight: 600; }
+.input, .textarea, .select-field { box-sizing: border-box; width: 100%; min-height: 3rem; margin: 0; padding: .75rem .875rem; color: $text; background: $surface; border: 1px solid #dfe3e0; border-radius: .6875rem; font-size: .9375rem; }
+.textarea { min-height: 7.5rem; line-height: 1.55; }
+.input:focus, .textarea:focus { border-color: $primary; }
+.form-hint { display: block; margin-top: .35rem; color: $secondary; font-size: .75rem; line-height: 1.45; }
+
+.segment { display: flex; box-sizing: border-box; width: 100%; gap: 1.35rem; padding: 0; background: transparent; border-bottom: 1px solid $border; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.segment::-webkit-scrollbar { display: none; }
+.segment-item { position: relative; display: flex !important; box-sizing: border-box; width: auto !important; min-width: 0; min-height: 2.75rem; flex: 0 0 auto !important; align-items: center; justify-content: center; margin: 0 !important; padding: 0 .05rem !important; color: $secondary; background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; font-size: .875rem; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.segment-item::after { display: none !important; border: 0 !important; }
+.segment-item.active { color: $primary; background: transparent; box-shadow: none; font-weight: 700; }
+.segment-item.active::after { content: ""; position: absolute; right: .15rem; bottom: -1px; left: .15rem; height: 2px; border-radius: 2px 2px 0 0; background: $primary; }
+
+.fab { position: fixed; right: max(1rem, calc((100vw - 30rem) / 2 + 1rem)); bottom: calc(5.75rem + env(safe-area-inset-bottom)); z-index: 20; display: flex; box-sizing: border-box; width: 3.25rem; height: 3.25rem; align-items: center; justify-content: center; margin: 0; padding: 0; border-radius: 50%; color: #fff; background: $primary !important; box-shadow: 0 .45rem 1.1rem rgba(23, 63, 53, .2); }
+.fab::after { display: none !important; }
+.stat-strip { display: grid; grid-template-columns: repeat(3, 1fr); padding: 1rem 0; border-top: 1px solid $border; border-bottom: 1px solid $border; }
+.stat-item { text-align: center; border-right: 1px solid $border; }
+.stat-item:last-child { border-right: 0; }
+.stat-value { display: block; font-size: 1.25rem; font-weight: 800; }
+.stat-label { display: block; margin-top: .2rem; color: $secondary; font-size: .75rem; }
+.menu-list { margin-top: .75rem; padding: 0 1rem; overflow: hidden; background: $surface; border: 1px solid $border; border-radius: .875rem; }
+.menu-arrow { color: #a5aba8; font-size: 1.1rem; }
+.notice { margin: .75rem 0; padding: .75rem .875rem; border-radius: .6875rem; font-size: .8125rem; line-height: 1.5; }
+.notice-success { color: #285b48; background: #edf6f1; }
+.notice-error { color: #923a36; background: #fbefee; }
+.grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.market-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.market-card { overflow: hidden; background: $surface; border: 1px solid $border; border-radius: .875rem; }
+.market-image { display: flex; aspect-ratio: 4 / 3; align-items: center; justify-content: center; color: #89918d; background: #e9ece9; font-size: .75rem; letter-spacing: .08em; }
+.market-body { padding: .75rem; }
+.price { display: block; margin-top: .4rem; color: $text; font-size: 1rem; font-weight: 800; }
+.gold { color: #9a7a1c; }
+.danger-text { color: $danger; }
+.safe-bottom { height: calc(1rem + env(safe-area-inset-bottom)); }
+
+@media (min-width: 480px) {
+  body {
+    background: #e9efeb;
+  }
+  .app-shell {
+    min-height: 100vh;
+    background: #f7f8f6;
+    border-right: 1px solid rgba(23,63,53,.1);
+    border-left: 1px solid rgba(23,63,53,.1);
+    box-shadow: 0 1.25rem 3.5rem rgba(24, 32, 29, .09);
+  }
+}

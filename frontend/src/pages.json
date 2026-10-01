@@ -1,0 +1,36 @@
+{
+  "pages": [
+    { "path": "pages/competition/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/play/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/community/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/profile/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/auth/login", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/auth/register", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/competition/detail", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/competition/create", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/competition/manage", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/competition/bracket", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/competition/groups", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/match/detail", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/match/scoring", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/play/detail", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/play/create", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/community/announcement-detail", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/community/market-detail", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/community/market-create", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/community/notifications", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/membership/apply", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/membership/card", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/membership/verify", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/rating/leaderboard", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/rating/mine", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/profile/edit", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/admin/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/admin/membership-review", "style": { "navigationStyle": "custom" } }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#f5f6f4",
+    "backgroundColor": "#f5f6f4"
+  }
+}
