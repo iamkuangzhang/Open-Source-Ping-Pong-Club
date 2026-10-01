@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: opensource-pingpong
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  mvc:
+    log-request-details: false
+logging:
+  level:
+    root: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: INFO
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET}
+    access-ttl-minutes: ${APP_JWT_ACCESS_TTL_MINUTES:15}
+    refresh-ttl-days: ${APP_JWT_REFRESH_TTL_DAYS:30}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
