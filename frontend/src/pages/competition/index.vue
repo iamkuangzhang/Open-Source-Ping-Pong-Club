@@ -16,6 +16,7 @@ const store = useAppStore()
 const filter = ref('ALL')
 const filters = [['ALL', '全部'], ['REGISTRATION', '报名中'], ['ACTIVE', '进行中'], ['FINISHED', '已结束']]
 const activeStatuses = ['ARRANGING', 'READY', 'RUNNING', 'RESULT_CONFIRMING']
+const homeCompetitionLimit = 2
 
 const sortedCompetitions = computed(() => [...store.competitions].sort((a, b) => new Date(b.start_time || b.created_at || 0).getTime() - new Date(a.start_time || a.created_at || 0).getTime()))
 const finishedCompetitions = computed(() => sortedCompetitions.value.filter((item) => item.status === 'FINISHED'))
@@ -23,10 +24,9 @@ const visible = computed(() => {
   if (filter.value === 'FINISHED') return finishedCompetitions.value
   if (filter.value === 'REGISTRATION') return sortedCompetitions.value.filter((item) => item.status === 'REGISTRATION')
   if (filter.value === 'ACTIVE') return sortedCompetitions.value.filter((item) => activeStatuses.includes(item.status))
-  const registration = sortedCompetitions.value.filter((item) => item.status === 'REGISTRATION').slice(0, 3)
-  const active = sortedCompetitions.value.filter((item) => activeStatuses.includes(item.status)).slice(0, 1)
-  const recentFinished = finishedCompetitions.value.slice(0, 1)
-  return [...registration, ...active, ...recentFinished].slice(0, 5)
+  const registration = sortedCompetitions.value.filter((item) => item.status === 'REGISTRATION')
+  const active = sortedCompetitions.value.filter((item) => activeStatuses.includes(item.status))
+  return [...registration, ...active, ...finishedCompetitions.value].slice(0, homeCompetitionLimit)
 })
 const hasMoreFinished = computed(() => filter.value === 'ALL' && finishedCompetitions.value.some((item) => !visible.value.includes(item)))
 const rank = computed(() => store.rating ? store.leaderboard.findIndex((item) => item.user_id === store.rating?.user_id) + 1 : 0)
