@@ -1,6 +1,69 @@
-# 开源乓协 V1.0.0
+<p align="center">
+  <img src="docs/readme-assets/product-logo.png" alt="开源乓协 Logo" width="720">
+</p>
 
-开源乓协是一个面向乒乓球活动管理与交流的个人学习/娱乐项目。本软件为独立开发项目，并非学校相关学生社团官方专用软件。
+<p align="center">
+  <strong>校园乒乓球赛事、约球、积分与社区一体化管理工具</strong>
+</p>
+
+<p align="center">
+  Open Source Ping Pong Club · V1.0.0
+</p>
+
+---
+
+## 项目简介
+
+**开源乓协** 是一个面向校园乒乓球活动管理与交流场景的跨平台应用，围绕 **比赛、约球、社区、成员服务与积分体系** 提供完整的移动端体验。
+
+项目采用前后端分离架构，前端基于 `uni-app + Vue 3 + TypeScript`，后端基于 `Spring Boot + PostgreSQL + Redis`，支持 H5、微信小程序与 App 多端构建。
+
+> 本软件为独立开发项目，并非学校相关学生社团官方专用软件，也不代表学校或相关学生组织的官方立场。
+
+## 产品预览
+
+<p align="center">
+  <img src="docs/readme-assets/product-overview.png" alt="开源乓协产品界面预览" width="100%">
+</p>
+
+## 核心功能
+
+| 模块 | 功能 |
+| --- | --- |
+| 比赛 | 赛事浏览、报名与退出、单淘汰 / 循环赛编排、比分录入、自动晋级、赛果确认 |
+| 积分 | 正式成员积分账户、积分流水、积分榜、赛事结算与幂等保护 |
+| 约球 | 发起约球、加入 / 退出、人数限制、状态管理 |
+| 社区 | 公告、校园二手信息、通知中心 |
+| 成员 | 入会申请、成员审核、组织角色、动态身份二维码与公开验证 |
+| 个人中心 | 个人资料、我的比赛、我的约球、我的发布、成员身份与通知 |
+| 管理 | 成员审核、赛事管理、公告管理及权限控制 |
+
+## 技术栈
+
+| 层级 | 技术 |
+| --- | --- |
+| 前端 | uni-app · Vue 3 · TypeScript · Pinia · SCSS |
+| 后端 | Java 21 · Spring Boot 3.5.x · Spring Security · Maven |
+| 数据库 | PostgreSQL 17+（V1.0.0 已在 PostgreSQL 18.0 验证） |
+| 缓存 | Redis / Redis-compatible |
+| 数据迁移 | Flyway |
+| API | REST |
+| 多端 | H5 · 微信小程序 · App |
+| 测试与验收 | Maven Test · 本地 HTTP E2E · PowerShell 验证脚本 |
+
+## 项目结构
+
+```text
+.
+├── backend/                 # Spring Boot 后端
+├── frontend/                # uni-app / Vue 3 前端
+├── scripts/                 # 本地启动、E2E 与验证脚本
+├── docs/                    # 项目文档与 README 资源
+├── compose.yaml             # 可选 PostgreSQL / Redis Docker 环境
+├── README.md
+├── RELEASE_NOTES_V1.0.0.md
+└── RELEASE_CHECKLIST_V1.0.0.md
+```
 
 ## 环境要求
 
@@ -11,9 +74,9 @@
 - PostgreSQL 17+（V1.0.0 已在 PostgreSQL 18.0 验证）
 - Redis 或 Redis-compatible 服务（默认 `127.0.0.1:6379`）
 
-Docker Compose 仅作为可选开发部署方式，不是本机启动的必要条件。
+Docker Compose 仅作为可选开发环境，不是本机启动的必要条件。
 
-## 本机秘密配置
+## 本机配置
 
 复制变量名后在系统环境变量中设置，或创建被 `.gitignore` 排除的 `backend/.env.local`：
 
@@ -28,19 +91,23 @@ APP_JWT_ACCESS_TTL_MINUTES=15
 APP_JWT_REFRESH_TTL_DAYS=30
 ```
 
-不要把真实密码、Token 或 JWT Secret 写入 `.env.example`、README 或 Git。
+请勿将真实密码、Token 或 JWT Secret 写入 `.env.example`、README 或 Git。
 
-## 启动
+## 本地启动
 
-使用本机配置启动后端：
+### 1. 启动后端
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\start-local.ps1
 ```
 
-健康检查：`http://127.0.0.1:8080/actuator/health`。
+健康检查：
 
-启动 H5 开发服务器：
+```text
+http://127.0.0.1:8080/actuator/health
+```
+
+### 2. 启动 H5
 
 ```powershell
 cd frontend
@@ -53,24 +120,58 @@ npm run dev:h5 -- --host 127.0.0.1 --port 5176
 ```powershell
 backend\mvnw.cmd test
 backend\mvnw.cmd package
+
 powershell -ExecutionPolicy Bypass -File scripts\e2e-v1-local.ps1
 powershell -ExecutionPolicy Bypass -File scripts\verify-play-post-local.ps1
 powershell -ExecutionPolicy Bypass -File scripts\verify-community-release-local.ps1
 ```
 
-E2E 和 QA 数据使用明确测试前缀，脚本不会删除来源不明的数据。
+E2E 与 QA 数据使用明确测试前缀，验证脚本不会删除来源不明的数据。
 
 ## 前端构建
 
 ```powershell
 cd frontend
+
 npm run build:h5
 npm run build:mp-weixin
 npm run build:app
 ```
 
-微信小程序真实发布仍需有效 AppID/开发者账号；Android 正式发布仍需签名证书和 HBuilderX 打包环境。
+微信小程序构建产物可导入微信开发者工具进行调试与上传。
 
-## 可选 Docker 环境
+> 微信小程序正式发布仍需有效 AppID / 开发者账号；Android 正式发布仍需签名证书和 HBuilderX 发布环境。
 
-`compose.yaml` 可用于其他开发环境启动 PostgreSQL/Redis。应用连接始终通过环境变量切换，Docker 不是 Release Gate。
+## 版本状态
+
+当前稳定版本：`v1.0.0`
+
+V1.0.0 已完成本地 Release Candidate 核心验收，包括后端测试、赛事与社区 HTTP E2E、安全检查以及 H5 / 微信小程序 / App 三端构建。
+
+详细内容见：
+
+- `RELEASE_NOTES_V1.0.0.md`
+- `RELEASE_CHECKLIST_V1.0.0.md`
+
+## 项目团队
+
+**项目主持人**
+
+- 李星谕
+
+**项目成员**
+
+> 以下成员按 **姓氏拼音首字母 A–Z 升序排列**；同首字母时按姓氏拼音继续排序。
+
+- 黄鹏
+- 李佳奇
+- 刘俊辉
+- 罗锐
+- 肖俊
+- 周佳睿
+
+## 说明
+
+本项目主要用于软件工程实践、校园体育活动数字化探索与个人学习交流。
+
+如用于实际校园场景，请根据所在地法律法规、平台规范与学校相关管理要求完善隐私政策、内容治理、部署与备案等事项。
