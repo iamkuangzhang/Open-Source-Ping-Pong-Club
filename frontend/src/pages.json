@@ -27,6 +27,7 @@
     { "path": "pages/profile/edit", "style": { "navigationStyle": "custom" } },
     { "path": "pages/admin/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/admin/membership-review", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/admin/market-reports", "style": { "navigationStyle": "custom" } },
     { "path": "pages/admin/sports", "style": { "navigationStyle": "custom" } },
     { "path": "pages/admin/organization", "style": { "navigationStyle": "custom" } }
   ],

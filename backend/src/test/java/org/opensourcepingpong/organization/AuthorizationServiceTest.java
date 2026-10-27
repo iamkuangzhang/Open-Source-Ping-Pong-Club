@@ -52,4 +52,14 @@ class AuthorizationServiceTest {
         BusinessException.class, () -> authorization.require(userId, Permission.SPORTS_MANAGE));
     assertEquals("PERMISSION_DENIED", exception.code());
   }
+
+  @Test
+  void ordinaryMemberCannotModerateMarketplaceReports() {
+    UUID userId = UUID.randomUUID();
+    when(repository.activeCodes(userId)).thenReturn(Set.of(RoleCode.MEMBER));
+
+    BusinessException exception = assertThrows(
+        BusinessException.class, () -> authorization.require(userId, Permission.MARKETPLACE_MODERATE));
+    assertEquals("PERMISSION_DENIED", exception.code());
+  }
 }

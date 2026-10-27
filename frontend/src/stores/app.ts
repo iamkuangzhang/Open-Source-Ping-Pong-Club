@@ -107,6 +107,8 @@ export type Post = {
   location?: string
   contact?: string
   price?: string
+  marketplace_condition?: string
+  delivery_method?: string
   author_user_id?: string
   joined?: boolean
   image_url?: string
@@ -615,10 +617,18 @@ export const useAppStore = defineStore('app', {
           content: '仅信息展示，交易自行核实。',
           visibility: 'PUBLIC',
           price: '面议',
-          contact: '站内通知'
+          contact: '站内通知',
+          marketplaceCondition: '九成新',
+          deliveryMethod: '当面交付',
+          rulesAccepted: true
         })
         await this.loadMarketPosts().catch(() => undefined)
       }, '二手信息已发布')
+    },
+    async reportMarketPost(id: string, reason: string) {
+      await this.run(async () => {
+        await api.post(`/market-posts/${id}/reports`, { reason })
+      }, '举报已提交，管理员将核查')
     },
     async markMarketSold(id: string) {
       await this.run(async () => {
