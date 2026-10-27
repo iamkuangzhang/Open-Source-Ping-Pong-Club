@@ -91,6 +91,60 @@ class RatingSettlementServiceTest {
     verify(jdbc, never()).update(startsWith("insert into rating_settlements"), any(Object[].class));
   }
 
+  @Test
+  void inactiveMembersAndAlreadySettledMatchesDoNotReceiveDuplicateLedgerEntries() {
+    UUID skippedMatch = UUID.randomUUID();
+    UUID settledMatch = UUID.randomUUID();
+    UUID a = UUID.randomUUID();
+    UUID b = UUID.randomUUID();
+    UUID c = UUID.randomUUID();
+    UUID d = UUID.randomUUID();
+    when(jdbc.queryForList(startsWith("select competition_type"), eq(competition)))
+        .thenReturn(List.of(competition("RATED", "RESULT_CONFIRMING")));
+    when(jdbc.queryForList(startsWith("select status from rating_settlements"), eq(competition)))
+        .thenReturn(List.of());
+    when(jdbc.queryForList(startsWith("select id,player_a_user_id"), eq(competition)))
+        .thenReturn(List.of(match(skippedMatch, a, b, a), match(settledMatch, c, d, d)));
+    when(jdbc.queryForList(startsWith("select id from memberships"), eq(a))).thenReturn(List.of());
+    when(jdbc.queryForList(startsWith("select id from memberships"), eq(b)))
+        .thenReturn(List.of(Map.of("id", UUID.randomUUID())));
+    when(jdbc.queryForList(startsWith("select id from memberships"), eq(c)))
+        .thenReturn(List.of(Map.of("id", UUID.randomUUID())));
+    when(jdbc.queryForList(startsWith("select id from memberships"), eq(d)))
+        .thenReturn(List.of(Map.of("id", UUID.randomUUID())));
+    when(jdbc.queryForList(startsWith("select id from rating_ledger"), eq(settledMatch)))
+        .thenReturn(List.of(Map.of("id", UUID.randomUUID())));
+
+    service.finalizeCompetition(operator, competition);
+
+    verify(jdbc, never()).queryForList(startsWith("select user_id,current_rating"), any(UUID.class), any(UUID.class));
+    verify(jdbc, never()).update(startsWith("insert into rating_ledger"), any(Object[].class));
+  }
+
+  @Test
+  void missingRatingAccountFailsSettlementWithoutMarkingCompetitionFinished() {
+    UUID matchId = UUID.randomUUID();
+    UUID a = UUID.randomUUID();
+    UUID b = UUID.randomUUID();
+    when(jdbc.queryForList(startsWith("select competition_type"), eq(competition)))
+        .thenReturn(List.of(competition("RATED", "RESULT_CONFIRMING")));
+    when(jdbc.queryForList(startsWith("select status from rating_settlements"), eq(competition)))
+        .thenReturn(List.of());
+    when(jdbc.queryForList(startsWith("select id,player_a_user_id"), eq(competition)))
+        .thenReturn(List.of(match(matchId, a, b, a)));
+    when(jdbc.queryForList(startsWith("select id from memberships"), any(UUID.class)))
+        .thenReturn(List.of(Map.of("id", UUID.randomUUID())));
+    when(jdbc.queryForList(startsWith("select id from rating_ledger"), eq(matchId))).thenReturn(List.of());
+    when(jdbc.queryForList(startsWith("select user_id,current_rating"), any(UUID.class), any(UUID.class)))
+        .thenReturn(List.of());
+
+    BusinessException exception = assertThrows(
+        BusinessException.class, () -> service.finalizeCompetition(operator, competition));
+
+    assertEquals("RATING_ACCOUNT_NOT_FOUND", exception.code());
+    verify(jdbc, never()).update(startsWith("update competitions"), any(Object[].class));
+  }
+
   private static Map<String, Object> competition(String type, String status) {
     return competition(type, status, "PING_PONG");
   }

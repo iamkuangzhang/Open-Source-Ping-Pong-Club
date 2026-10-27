@@ -95,11 +95,11 @@ public class OrganizationController {
     Instant now = Instant.now();
     if (request.active()) {
       jdbc.update("""
-          insert into user_organization_roles(id,user_id,role_id,granted_by,granted_at)
-          values(?,?,?,?,?)
+          insert into user_organization_roles(user_id,role_id,granted_by,granted_at)
+          values(?,?,?,?)
           on conflict(user_id,role_id) do update
           set granted_by=excluded.granted_by,granted_at=excluded.granted_at,revoked_by=null,revoked_at=null
-          """, UUID.randomUUID(), userId, roleId, principal.userId(), Timestamp.from(now));
+          """, userId, roleId, principal.userId(), Timestamp.from(now));
     } else {
       jdbc.update("""
           update user_organization_roles

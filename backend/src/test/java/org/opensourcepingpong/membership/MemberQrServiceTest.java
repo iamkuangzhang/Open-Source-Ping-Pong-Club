@@ -91,6 +91,20 @@ class MemberQrServiceTest {
     assertEquals("ACTIVE", verification.status());
   }
 
+  @Test
+  void verificationFallsBackToNicknameWhenRealNameIsUnavailable() {
+    UUID user = UUID.randomUUID();
+    when(values.get(anyString())).thenReturn(user.toString());
+    when(memberships.findByUserId(user)).thenReturn(Optional.of(new Membership(user, "OSC-0002")));
+    when(users.publicProfile(user)).thenReturn(new UserService.PublicUserView(user, "昵称", null, "avatar"));
+    when(roles.roles(user)).thenReturn(Set.of(RoleCode.MEMBER, RoleCode.ADMIN));
+
+    var verification = service.verify("token");
+
+    assertEquals("昵称", verification.name());
+    assertTrue(Set.of("MEMBER", "ADMIN").contains(verification.role()));
+  }
+
   private static void setStatus(Membership membership, MembershipStatus status) throws Exception {
     Field field = Membership.class.getDeclaredField("status");
     field.setAccessible(true);
