@@ -81,7 +81,9 @@ status：
 - name VARCHAR(40) NOT NULL
 
 初始化：
-MEMBER / VICE_MINISTER / MINISTER / VICE_PRESIDENT / PRESIDENT / ADVISOR
+MEMBER / ADMIN / VICE_MINISTER / MINISTER / VICE_PRESIDENT / PRESIDENT / ADVISOR
+
+ADMIN 由 PRESIDENT / ADVISOR 任命，不授予 `ROLE_MANAGE`。
 
 ## 6. user_organization_roles
 
@@ -153,6 +155,7 @@ MATCH 类型应保证 `(match_id, user_id)` 唯一。
 - cover_url VARCHAR(500)
 - competition_type VARCHAR(20) NOT NULL
 - event_type VARCHAR(20) NOT NULL
+- sport_id UUID NOT NULL REFERENCES sports(id)
 - format VARCHAR(30) NOT NULL
 - status VARCHAR(30) NOT NULL
 - registration_scope VARCHAR(20) NOT NULL
@@ -181,6 +184,20 @@ SINGLES
 
 format：
 SINGLE_ELIMINATION / ROUND_ROBIN
+
+sport_id 指向运动类型目录；历史赛事迁移时归入 PING_PONG。
+
+## 10.1 sports
+
+- id UUID PK
+- code VARCHAR(40) UNIQUE NOT NULL
+- name VARCHAR(40) NOT NULL
+- active BOOLEAN NOT NULL DEFAULT TRUE
+- sort_order INTEGER NOT NULL DEFAULT 100
+- created_by UUID
+- created_at / updated_at TIMESTAMPTZ NOT NULL
+
+V8 初始化 PING_PONG、BADMINTON、BASKETBALL、FOOTBALL。运动类型被赛事引用后保留其记录。
 
 ## 11. competition_entries
 

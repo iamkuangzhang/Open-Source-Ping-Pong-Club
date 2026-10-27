@@ -79,8 +79,24 @@ class RatingSettlementServiceTest {
     assertEquals("COMPETITION_INVALID_STATE", ex.code());
   }
 
+  @Test
+  void otherSportsCannotSettleSharedRating() {
+    when(jdbc.queryForList(startsWith("select competition_type"), eq(competition)))
+        .thenReturn(List.of(competition("RATED", "RESULT_CONFIRMING", "BADMINTON")));
+    when(jdbc.queryForList(startsWith("select status from rating_settlements"), eq(competition))).thenReturn(List.of());
+
+    var exception = assertThrows(BusinessException.class, () -> service.finalizeCompetition(operator, competition));
+
+    assertEquals("SPORT_RATING_UNSUPPORTED", exception.code());
+    verify(jdbc, never()).update(startsWith("insert into rating_settlements"), any(Object[].class));
+  }
+
   private static Map<String, Object> competition(String type, String status) {
-    return new HashMap<>(Map.of("competition_type", type, "status", status));
+    return competition(type, status, "PING_PONG");
+  }
+
+  private static Map<String, Object> competition(String type, String status, String sportCode) {
+    return new HashMap<>(Map.of("competition_type", type, "status", status, "sport_code", sportCode));
   }
 
   private static Map<String, Object> match(UUID id, UUID a, UUID b, UUID winner) {

@@ -18,6 +18,8 @@ export type Competition = {
   id: string
   title: string
   description?: string
+  sport_code?: string
+  sport_name?: string
   competition_type?: 'DAILY' | 'EXAM' | 'RATED'
   type?: 'DAILY' | 'EXAM' | 'RATED'
   format?: 'SINGLE_ELIMINATION' | 'ROUND_ROBIN'
@@ -29,6 +31,21 @@ export type Competition = {
   created_at?: string
   max_participants?: number
   best_of?: number
+}
+
+export type Sport = {
+  id: string
+  code: string
+  name: string
+}
+
+export type RoleCode = 'MEMBER' | 'ADMIN' | 'VICE_MINISTER' | 'MINISTER' | 'VICE_PRESIDENT' | 'PRESIDENT' | 'ADVISOR'
+
+export type OrganizationMember = {
+  userId: string
+  nickname?: string
+  memberNumber: string
+  roles: RoleCode[]
 }
 
 export type CompetitionEntry = {
@@ -150,6 +167,9 @@ export const useAppStore = defineStore('app', {
     ratingHistory: [] as RatingLedger[],
     application: null as MembershipApplication | null,
     adminApplications: [] as MembershipApplication[],
+    myRoles: [] as RoleCode[],
+    organizationMembers: [] as OrganizationMember[],
+    sports: [] as Sport[],
     competitions: [] as Competition[],
     joinedCompetitionIds: loadStringList('joinedCompetitionIds'),
     selectedCompetitionId: '',
@@ -163,6 +183,8 @@ export const useAppStore = defineStore('app', {
     notifications: [] as Array<{ id: string; title: string; content: string; read_at?: string }>,
     qr: null as { token: string; expiresIn: number } | null,
     adminAccess: false,
+    sportsStatus: 'idle' as SectionStatus,
+    organizationMembersStatus: 'idle' as SectionStatus,
     competitionsStatus: 'idle' as SectionStatus,
     leaderboardStatus: 'idle' as SectionStatus,
     announcementsStatus: 'idle' as SectionStatus,
@@ -179,6 +201,7 @@ export const useAppStore = defineStore('app', {
     signedIn: (state) => Boolean(state.accessToken),
     isMember: (state) => Boolean(state.rating),
     canManage: (state) => state.adminAccess,
+    canManageRoles: (state) => state.myRoles.includes('PRESIDENT') || state.myRoles.includes('ADVISOR'),
     ratingText: (state) => state.rating ? String(state.rating.current_rating) : '—',
     winRate: (state) => {
       if (!state.rating || state.rating.rated_matches === 0) return '—'
@@ -212,6 +235,8 @@ export const useAppStore = defineStore('app', {
       this.ratingHistory = []
       this.application = null
       this.adminApplications = []
+      this.myRoles = []
+      this.organizationMembers = []
       this.adminAccess = false
       this.qr = null
       this.profileStatus = 'idle'
@@ -345,11 +370,23 @@ export const useAppStore = defineStore('app', {
       this.notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value || [] : []
       this.application = applicationResult.status === 'fulfilled' ? applicationResult.value : null
       try {
-        this.adminApplications = await api.get<MembershipApplication[]>('/admin/membership/applications')
-        this.adminAccess = true
-      } catch {
+        this.myRoles = await api.get<RoleCode[]>('/organization/me/roles')
+      } catch (error) {
+        this.myRoles = []
+        console.error('[organization-roles] load failed', error)
+      }
+      this.adminAccess = this.myRoles.some(role =>
+        ['ADMIN', 'VICE_MINISTER', 'MINISTER', 'VICE_PRESIDENT', 'PRESIDENT', 'ADVISOR'].includes(role)
+      )
+      if (this.adminAccess) {
+        try {
+          this.adminApplications = await api.get<MembershipApplication[]>('/admin/membership/applications')
+        } catch (error) {
+          this.adminApplications = []
+          console.error('[admin-applications] load failed', error)
+        }
+      } else {
         this.adminApplications = []
-        this.adminAccess = false
       }
     },
     async register(account: string, password: string, nickname: string) {
@@ -429,6 +466,40 @@ export const useAppStore = defineStore('app', {
         await this.loadCompetitionDetail(id)
         await this.loadCompetitions().catch(() => undefined)
       }, '赛事资料已保存')
+    },
+    async loadSports() {
+      this.sportsStatus = 'loading'
+      try {
+        this.sports = await api.get<Sport[]>('/sports') || []
+        this.sportsStatus = this.sports.length ? 'success' : 'empty'
+      } catch (error) {
+        this.sportsStatus = 'error'
+        console.error('[sports] load failed', error)
+        throw error
+      }
+    },
+    async createSport(payload: { code: string; name: string }) {
+      await this.run(async () => {
+        await api.post('/admin/sports', payload)
+        await this.loadSports()
+      }, '运动类型已添加')
+    },
+    async loadOrganizationMembers() {
+      this.organizationMembersStatus = 'loading'
+      try {
+        this.organizationMembers = await api.get<OrganizationMember[]>('/admin/members') || []
+        this.organizationMembersStatus = this.organizationMembers.length ? 'success' : 'empty'
+      } catch (error) {
+        this.organizationMembersStatus = 'error'
+        console.error('[organization-members] load failed', error)
+        throw error
+      }
+    },
+    async setMemberRole(userId: string, roleCode: RoleCode, active: boolean) {
+      await this.run(async () => {
+        await api.put(`/admin/members/${userId}/roles`, { roleCode, active })
+        await this.loadOrganizationMembers()
+      }, active ? '职务已授予' : '职务已撤销')
     },
     async reviewCompetitionEntry(entryId: string, approve: boolean) {
       await this.run(async () => {

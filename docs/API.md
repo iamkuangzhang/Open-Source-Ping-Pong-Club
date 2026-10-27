@@ -68,10 +68,20 @@ Refresh Token：30 天
 ## 6. 组织职务
 
 - GET `/organization/roles`
+- GET `/organization/me/roles`
 - GET `/members/{userId}/roles`
-- PUT `/admin/members/{userId}/roles`
+- GET `/admin/members`
+- PUT `/admin/members/{userId}/roles`，Body：`{ "roleCode": "ADMIN", "active": true }`
 
-最后一个接口仅 PRESIDENT / ADVISOR。
+组织管理接口仅 PRESIDENT / ADVISOR。角色启用或撤销写入审计日志。
+首次部署时，部署运维须通过受控流程为可信账号初始化 PRESIDENT 或 ADVISOR；之后由这两类职务任命管理员，业务 API 不提供匿名自助升权入口。
+
+## 6.1 运动类型
+
+- GET `/sports`：列出有效运动类型，公开可读
+- POST `/admin/sports`：添加运动类型，Body：`{ "code": "VOLLEYBALL", "name": "排球" }`
+
+新增类型编码必须以英文字母开头，仅包含英文字母、数字和下划线，最多 40 字符；名称最多 40 字符。创建需要管理权限并写入审计日志。
 
 ## 7. 比赛
 
@@ -92,6 +102,8 @@ Refresh Token：30 天
 - POST `/admin/competitions/{id}/enter-result-confirming`
 - POST `/admin/competitions/{id}/finalize`
 - POST `/admin/competitions/{id}/cancel`
+
+创建/编辑赛事可传入 `sportCode`，缺省时兼容为 `PING_PONG`。只有乒乓球 `RATED` 赛事可结算共享积分；其他球类暂不支持积分赛事与专属计分/赛制规则。
 
 ## 8. 比赛报名
 
@@ -199,6 +211,11 @@ V1 不存在支付、订单、退款 API。
 - MEMBERSHIP_APPLICATION_NOT_FOUND
 - MEMBERSHIP_APPLICATION_ALREADY_REVIEWED
 - PERMISSION_DENIED
+- SPORT_ALREADY_EXISTS
+- SPORT_NOT_FOUND
+- SPORT_RATING_UNSUPPORTED
+- MEMBER_NOT_FOUND
+- ROLE_NOT_FOUND
 - COMPETITION_NOT_FOUND
 - COMPETITION_INVALID_STATE
 - COMPETITION_REGISTRATION_CLOSED

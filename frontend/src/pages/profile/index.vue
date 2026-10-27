@@ -28,12 +28,12 @@ const serviceMenus: MenuItem[] = [
   { label: '关于开源乓协', icon: 'info', action: 'about' },
   { label: '设置', icon: 'settings', action: 'settings' }
 ]
-const adminMenus = [
+const adminMenus = computed(() => [
   { label: '成员审核', path: '/pages/admin/membership-review' },
   { label: '赛事管理', path: '/pages/admin/index', section: 'competitions' },
   { label: '公告管理', path: '/pages/admin/index', section: 'announcements' },
-  { label: '组织管理', path: '/pages/admin/index', section: 'organization' }
-]
+  ...(store.canManageRoles ? [{ label: '组织管理', path: '/pages/admin/organization' }] : [])
+])
 
 function openMenu(item: MenuItem) {
   if (item.auth && !store.signedIn) return go('/pages/auth/login')
