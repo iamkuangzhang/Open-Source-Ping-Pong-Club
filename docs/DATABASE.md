@@ -369,6 +369,29 @@ UNIQUE(play_post_id, user_id)
 - created_at
 - read_at
 
+## 22.1 二手信息治理（V10）
+
+`community_posts` 新增：
+- marketplace_condition VARCHAR(40)
+- delivery_method VARCHAR(30)
+- moderation_previous_status VARCHAR(20)：临时隐藏前的状态，恢复时还原
+- market_rules_accepted_at TIMESTAMPTZ：发布时确认交易规则的时间
+
+新增 `marketplace_reports`：
+- id UUID PK
+- post_id UUID NOT NULL REFERENCES community_posts(id)
+- reporter_user_id UUID NOT NULL REFERENCES users(id)
+- reason VARCHAR(30) NOT NULL
+- details VARCHAR(500)
+- status VARCHAR(20) NOT NULL：PENDING / REVIEWED
+- reviewer_user_id UUID REFERENCES users(id)
+- review_action VARCHAR(20)：HIDE / DISMISS
+- review_note VARCHAR(500)
+- reviewed_at TIMESTAMPTZ
+- created_at TIMESTAMPTZ NOT NULL
+
+同一用户对同一商品同时只能有一条待处理举报。已处理后可以重新举报。V10 新建举报索引和审核列表索引；已执行的 Migration 不得改写。
+
 ## 23. audit_logs
 
 - id UUID PK

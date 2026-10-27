@@ -159,12 +159,18 @@ Refresh Token：30 天
 
 - GET `/market-posts`
 - GET `/market-posts/{id}`
-- POST `/market-posts`
+- POST `/market-posts`：需提供 `marketplaceCondition`、`deliveryMethod`、`rulesAccepted: true`
 - PUT `/market-posts/{id}`
-- DELETE `/market-posts/{id}`
 - POST `/market-posts/{id}/mark-sold`
+- POST `/market-posts/{id}/reports`：需登录；`reason` 为 `SUSPECTED_FRAUD`、`PROHIBITED_GOODS`、`MISLEADING`、`HARASSMENT`、`PRIVACY`、`OTHER` 之一，`details` 可选且最多 500 字。同一用户对同一商品存在待处理举报时不可重复提交。
+- GET `/admin/market-reports`：查看待处理举报，需要 `MARKETPLACE_MODERATE`
+- PUT `/admin/market-reports/{reportId}`：`action` 为 `HIDE` 或 `DISMISS`，可附 500 字内 `reviewNote`；处理记录写审计日志
+- GET `/admin/market-posts/hidden`：查看临时隐藏信息，需要 `MARKETPLACE_MODERATE`
+- POST `/admin/market-posts/{id}/restore`：核查后恢复展示，需要 `MARKETPLACE_MODERATE`
 
-V1 不存在支付、订单、退款 API。
+被隐藏的信息不可从公开列表或详情读取。临时下架与恢复会通知发布者。
+
+V1 不存在支付、订单、退款、资金托管或担保 API；举报和管理员审核仅管理信息展示，不代表平台保证线下交易安全或结果。
 
 ## 14. 通知
 
@@ -237,6 +243,14 @@ V1 不存在支付、订单、退款 API。
 - PLAY_ALREADY_JOINED
 - MARKET_POST_NOT_FOUND
 - MARKET_POST_NOT_OWNER
+- MARKET_POST_NOT_EDITABLE
+- MARKET_POST_NOT_HIDDEN
+- MARKET_RULES_REQUIRED
+- MARKET_DETAILS_REQUIRED
+- MARKET_REPORT_SELF
+- MARKET_REPORT_EXISTS
+- MARKET_REPORT_NOT_FOUND
+- MARKET_REPORT_ALREADY_REVIEWED
 - QR_TOKEN_INVALID
 - QR_TOKEN_EXPIRED
 - VALIDATION_ERROR
