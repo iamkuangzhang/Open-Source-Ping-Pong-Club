@@ -137,14 +137,15 @@ class SportControllerTest {
         new SportController.UpdateSport("  排球  ", 5));
 
     ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-    verify(jdbc, org.mockito.Mockito.times(2)).update(sql.capture(), any(Object[].class));
+    ArgumentCaptor<Object[]> params = ArgumentCaptor.forClass(Object[].class);
+    verify(jdbc, org.mockito.Mockito.times(2)).update(sql.capture(), params.capture());
     String updateSql = sql.getAllValues().get(0);
     assertTrue(updateSql.contains("update sports"));
     assertTrue(updateSql.contains("sort_order=?"));
     assertTrue(updateSql.contains("updated_at=?"));
     String auditSql = sql.getAllValues().get(1);
     assertTrue(auditSql.contains("insert into audit_logs"));
-    assertTrue(auditSql.contains("SPORT_UPDATED"));
+    assertTrue(java.util.Arrays.asList(params.getAllValues().get(1)).contains("SPORT_UPDATED"));
   }
 
   @Test
@@ -179,11 +180,12 @@ class SportControllerTest {
         new SportController.SportStatus(false));
 
     ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-    verify(jdbc, org.mockito.Mockito.times(2)).update(sql.capture(), any(Object[].class));
+    ArgumentCaptor<Object[]> params = ArgumentCaptor.forClass(Object[].class);
+    verify(jdbc, org.mockito.Mockito.times(2)).update(sql.capture(), params.capture());
     String statusSql = sql.getAllValues().get(0);
     assertTrue(statusSql.contains("active=?"));
     assertTrue(statusSql.contains("updated_at=?"));
-    assertTrue(sql.getAllValues().get(1).contains("SPORT_DISABLED"));
+    assertTrue(java.util.Arrays.asList(params.getAllValues().get(1)).contains("SPORT_DISABLED"));
   }
 
   @Test
