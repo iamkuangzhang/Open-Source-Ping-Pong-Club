@@ -105,6 +105,40 @@ class MembershipServiceTest {
   }
 
   @Test
+  void rejectingApplicationDoesNotCreateMembershipOrRatingAndSendsComment() throws Exception {
+    UUID reviewer = UUID.randomUUID();
+    UUID applicant = UUID.randomUUID();
+    UUID appId = UUID.randomUUID();
+    MembershipApplication application = new MembershipApplication(
+        applicant, "张三", "20260001", "计院", "软件", "2026", "13000000000", null);
+    setField(application, "id", appId);
+    when(applications.findById(appId)).thenReturn(Optional.of(application));
+
+    service.review(reviewer, appId, false, "资料不完整");
+
+    assertEquals(ApplicationStatus.REJECTED, application.getStatus());
+    verify(memberships, never()).save(any());
+    verify(accounts, never()).save(any());
+    verify(ledgers, never()).save(any());
+    verify(userRoles, never()).save(any());
+    verify(jdbc).update(startsWith("insert into notifications"), any(UUID.class), eq(applicant),
+        eq("MEMBERSHIP_REVIEW"), eq("入会申请未通过"), eq("入会申请未通过：资料不完整"));
+  }
+
+  @Test
+  void reviewingUnknownApplicationReturnsNotFound() {
+    UUID reviewer = UUID.randomUUID();
+    UUID appId = UUID.randomUUID();
+    when(applications.findById(appId)).thenReturn(Optional.empty());
+
+    var exception = assertThrows(BusinessException.class,
+        () -> service.review(reviewer, appId, true, null));
+
+    assertEquals("MEMBERSHIP_APPLICATION_NOT_FOUND", exception.code());
+    verify(memberships, never()).save(any());
+  }
+
+  @Test
   void unauthorizedReviewerCannotReadOrReviewApplications() {
     UUID reviewer = UUID.randomUUID();
     doThrow(new BusinessException(org.springframework.http.HttpStatus.FORBIDDEN, "PERMISSION_DENIED", "denied"))

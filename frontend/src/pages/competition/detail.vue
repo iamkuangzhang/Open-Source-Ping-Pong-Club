@@ -47,6 +47,7 @@ async function join() {
       <view class="detail-hero">
         <view class="label-line"><text :class="['type', { gold: (detail.competition_type || detail.type) === 'RATED' }]">{{ competitionType(detail.competition_type || detail.type) }}</text><StatusBadge :status="detail.status" /></view>
         <text class="detail-title">{{ detail.title }}</text>
+        <text class="meta">{{ detail.sport_name || '乒乓球' }}</text>
         <text class="meta">{{ formatDate(detail.start_time) }}</text>
         <text class="meta">{{ detail.location || '地点待定' }}</text>
         <text class="meta">{{ detail.format === 'ROUND_ROBIN' ? '小组循环' : '单淘汰' }} · {{ detail.best_of || 3 }}局制</text>
@@ -69,7 +70,7 @@ async function join() {
         <EmptyState v-if="!store.schedule.length" title="赛程尚未生成" />
         <MatchCard v-for="item in store.schedule.slice(0, 3)" :key="item.id" :item="item" @open="go('/pages/match/detail', { id: item.id, competitionId: id })" />
       </view>
-      <view class="detail-section"><text class="section-title">赛事规则</text><text class="body-copy">V1 为单打项目。比赛结果、晋级与积分结算以后端最终确认结果为准。</text></view>
+      <view class="detail-section"><text class="section-title">赛事规则</text><text class="body-copy">{{ detail.sport_name || '乒乓球' }}赛事当前沿用现有通用比赛流程，球类专属计分和赛制规则尚未实现。积分只适用于乒乓球 RATED 赛事；比赛结果与晋级以后台最终确认结果为准。</text></view>
       <view v-if="store.canManage" class="manage-entry" @click="go('/pages/competition/manage', { id })"><text>赛事管理</text><AppIcon name="chevron-right" /></view>
     </template>
   </view>

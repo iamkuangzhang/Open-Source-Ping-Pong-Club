@@ -1,0 +1,27 @@
+CREATE TABLE sports (
+    id UUID PRIMARY KEY,
+    code VARCHAR(40) NOT NULL UNIQUE,
+    name VARCHAR(40) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INTEGER NOT NULL DEFAULT 100,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO sports(id, code, name, sort_order) VALUES
+    ('80000000-0000-0000-0000-000000000001', 'PING_PONG', '乒乓球', 1),
+    ('80000000-0000-0000-0000-000000000002', 'BADMINTON', '羽毛球', 2),
+    ('80000000-0000-0000-0000-000000000003', 'BASKETBALL', '篮球', 3),
+    ('80000000-0000-0000-0000-000000000004', 'FOOTBALL', '足球', 4);
+
+ALTER TABLE competitions ADD COLUMN sport_id UUID;
+UPDATE competitions
+SET sport_id = '80000000-0000-0000-0000-000000000001';
+ALTER TABLE competitions
+    ALTER COLUMN sport_id SET NOT NULL,
+    ADD CONSTRAINT fk_competitions_sport FOREIGN KEY (sport_id) REFERENCES sports(id);
+CREATE INDEX idx_competitions_sport ON competitions(sport_id);
+
+INSERT INTO organization_roles(id, code, name)
+VALUES ('00000000-0000-0000-0000-000000000007', 'ADMIN', '管理员');
