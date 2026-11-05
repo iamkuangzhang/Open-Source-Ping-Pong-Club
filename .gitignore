@@ -14,3 +14,4 @@ frontend/unpackage/
 .ui-v22/
 .playwright-mcp/
 docs.zip
+.localrun/
