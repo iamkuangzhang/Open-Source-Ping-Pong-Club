@@ -68,22 +68,10 @@ Refresh Token：30 天
 ## 6. 组织职务
 
 - GET `/organization/roles`
-- GET `/organization/me/roles`
 - GET `/members/{userId}/roles`
-- GET `/admin/members`
-- PUT `/admin/members/{userId}/roles`，Body：`{ "roleCode": "ADMIN", "active": true }`
+- PUT `/admin/members/{userId}/roles`
 
-组织管理接口仅 PRESIDENT / ADVISOR。角色启用或撤销写入审计日志。
-首次部署时，部署运维须通过受控流程为可信账号初始化 PRESIDENT 或 ADVISOR；之后由这两类职务任命管理员，业务 API 不提供匿名自助升权入口。
-
-## 6.1 运动类型
-
-- GET `/sports`：列出有效运动类型，公开可读
-- POST `/admin/sports`：添加运动类型，Body：`{ "code": "VOLLEYBALL", "name": "排球" }`
-- PUT `/admin/sports/{id}`：编辑运动类型名称与排序，Body：`{ "name": "排球", "sortOrder": 5 }`
-- PUT `/admin/sports/{id}/status`：启用或停用运动类型，Body：`{ "active": false }`
-
-新增类型编码必须以英文字母开头，仅包含英文字母、数字和下划线，最多 40 字符；名称最多 40 字符。创建需要管理权限并写入审计日志。编辑与停用/启用需要管理权限，均刷新 `updated_at` 并写入审计日志；目标不存在返回 `SPORT_NOT_FOUND`。停用后不再出现在有效运动类型列表中，历史赛事不受影响。
+最后一个接口仅 PRESIDENT / ADVISOR。
 
 ## 7. 比赛
 
@@ -104,8 +92,6 @@ Refresh Token：30 天
 - POST `/admin/competitions/{id}/enter-result-confirming`
 - POST `/admin/competitions/{id}/finalize`
 - POST `/admin/competitions/{id}/cancel`
-
-创建/编辑赛事可传入 `sportCode`，缺省时兼容为 `PING_PONG`。只有乒乓球 `RATED` 赛事可结算共享积分；其他球类暂不支持积分赛事与专属计分/赛制规则。
 
 ## 8. 比赛报名
 
@@ -159,18 +145,12 @@ Refresh Token：30 天
 
 - GET `/market-posts`
 - GET `/market-posts/{id}`
-- POST `/market-posts`：需提供 `marketplaceCondition`、`deliveryMethod`、`rulesAccepted: true`
+- POST `/market-posts`
 - PUT `/market-posts/{id}`
+- DELETE `/market-posts/{id}`
 - POST `/market-posts/{id}/mark-sold`
-- POST `/market-posts/{id}/reports`：需登录；`reason` 为 `SUSPECTED_FRAUD`、`PROHIBITED_GOODS`、`MISLEADING`、`HARASSMENT`、`PRIVACY`、`OTHER` 之一，`details` 可选且最多 500 字。同一用户对同一商品存在待处理举报时不可重复提交。
-- GET `/admin/market-reports`：查看待处理举报，需要 `MARKETPLACE_MODERATE`
-- PUT `/admin/market-reports/{reportId}`：`action` 为 `HIDE` 或 `DISMISS`，可附 500 字内 `reviewNote`；处理记录写审计日志
-- GET `/admin/market-posts/hidden`：查看临时隐藏信息，需要 `MARKETPLACE_MODERATE`
-- POST `/admin/market-posts/{id}/restore`：核查后恢复展示，需要 `MARKETPLACE_MODERATE`
 
-被隐藏的信息不可从公开列表或详情读取。临时下架与恢复会通知发布者。
-
-V1 不存在支付、订单、退款、资金托管或担保 API；举报和管理员审核仅管理信息展示，不代表平台保证线下交易安全或结果。
+V1 不存在支付、订单、退款 API。
 
 ## 14. 通知
 
@@ -219,11 +199,6 @@ V1 不存在支付、订单、退款、资金托管或担保 API；举报和管�
 - MEMBERSHIP_APPLICATION_NOT_FOUND
 - MEMBERSHIP_APPLICATION_ALREADY_REVIEWED
 - PERMISSION_DENIED
-- SPORT_ALREADY_EXISTS
-- SPORT_NOT_FOUND
-- SPORT_RATING_UNSUPPORTED
-- MEMBER_NOT_FOUND
-- ROLE_NOT_FOUND
 - COMPETITION_NOT_FOUND
 - COMPETITION_INVALID_STATE
 - COMPETITION_REGISTRATION_CLOSED
@@ -243,14 +218,6 @@ V1 不存在支付、订单、退款、资金托管或担保 API；举报和管�
 - PLAY_ALREADY_JOINED
 - MARKET_POST_NOT_FOUND
 - MARKET_POST_NOT_OWNER
-- MARKET_POST_NOT_EDITABLE
-- MARKET_POST_NOT_HIDDEN
-- MARKET_RULES_REQUIRED
-- MARKET_DETAILS_REQUIRED
-- MARKET_REPORT_SELF
-- MARKET_REPORT_EXISTS
-- MARKET_REPORT_NOT_FOUND
-- MARKET_REPORT_ALREADY_REVIEWED
 - QR_TOKEN_INVALID
 - QR_TOKEN_EXPIRED
 - VALIDATION_ERROR

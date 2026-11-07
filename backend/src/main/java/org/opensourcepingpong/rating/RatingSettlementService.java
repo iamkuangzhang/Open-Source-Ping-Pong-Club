@@ -24,14 +24,11 @@ public class RatingSettlementService {
   @Transactional
   public void finalizeCompetition(UUID operator, UUID competitionId) {
     authorization.require(operator, Permission.COMPETITION_MANAGE);
-    var competition = one("select competition_type,status,s.code sport_code from competitions c join sports s on s.id=c.sport_id where c.id=? for update", competitionId, "COMPETITION_NOT_FOUND");
+    var competition = one("select competition_type,status from competitions where id=? for update", competitionId, "COMPETITION_NOT_FOUND");
     var prior = jdbc.queryForList("select status from rating_settlements where competition_id=?", competitionId);
     if (!prior.isEmpty() && "COMPLETED".equals(prior.getFirst().get("status")) && "FINISHED".equals(competition.get("status"))) return;
     if (!"RESULT_CONFIRMING".equals(competition.get("status"))) {
       throw new BusinessException(HttpStatus.CONFLICT, "COMPETITION_INVALID_STATE", "competition must be in result confirmation");
-    }
-    if ("RATED".equals(competition.get("competition_type")) && !"PING_PONG".equals(competition.get("sport_code"))) {
-      throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, "SPORT_RATING_UNSUPPORTED", "其他运动类型暂不支持积分赛事");
     }
     if (!prior.isEmpty() && "COMPLETED".equals(prior.getFirst().get("status"))) return; // idempotent
     UUID settlementId;

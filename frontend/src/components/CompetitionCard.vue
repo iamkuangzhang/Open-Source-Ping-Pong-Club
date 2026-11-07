@@ -19,7 +19,6 @@ const detailLabel = computed(() => props.item.status === 'FINISHED' ? '查看结
       <StatusBadge :status="item.status" />
     </view>
     <text class="competition-title">{{ item.title }}</text>
-    <view v-if="item.sport_name" class="meta-line sport-line"><text>{{ item.sport_name }}</text></view>
     <view class="meta-line"><AppIcon name="calendar" size="sm" muted /><text>{{ formatDate(item.start_time) }}</text></view>
     <view class="meta-line"><AppIcon name="location" size="sm" muted /><text>{{ item.location || '地点待定' }} · {{ item.best_of ? `${item.best_of}局制` : (item.format === 'ROUND_ROBIN' ? '小组循环' : '单淘汰') }}</text></view>
     <view class="card-bottom">

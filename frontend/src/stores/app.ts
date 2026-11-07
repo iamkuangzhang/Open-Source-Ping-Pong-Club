@@ -18,8 +18,6 @@ export type Competition = {
   id: string
   title: string
   description?: string
-  sport_code?: string
-  sport_name?: string
   competition_type?: 'DAILY' | 'EXAM' | 'RATED'
   type?: 'DAILY' | 'EXAM' | 'RATED'
   format?: 'SINGLE_ELIMINATION' | 'ROUND_ROBIN'
@@ -31,21 +29,6 @@ export type Competition = {
   created_at?: string
   max_participants?: number
   best_of?: number
-}
-
-export type Sport = {
-  id: string
-  code: string
-  name: string
-}
-
-export type RoleCode = 'MEMBER' | 'ADMIN' | 'VICE_MINISTER' | 'MINISTER' | 'VICE_PRESIDENT' | 'PRESIDENT' | 'ADVISOR'
-
-export type OrganizationMember = {
-  userId: string
-  nickname?: string
-  memberNumber: string
-  roles: RoleCode[]
 }
 
 export type CompetitionEntry = {
@@ -107,8 +90,6 @@ export type Post = {
   location?: string
   contact?: string
   price?: string
-  marketplace_condition?: string
-  delivery_method?: string
   author_user_id?: string
   joined?: boolean
   image_url?: string
@@ -169,9 +150,6 @@ export const useAppStore = defineStore('app', {
     ratingHistory: [] as RatingLedger[],
     application: null as MembershipApplication | null,
     adminApplications: [] as MembershipApplication[],
-    myRoles: [] as RoleCode[],
-    organizationMembers: [] as OrganizationMember[],
-    sports: [] as Sport[],
     competitions: [] as Competition[],
     joinedCompetitionIds: loadStringList('joinedCompetitionIds'),
     selectedCompetitionId: '',
@@ -185,8 +163,6 @@ export const useAppStore = defineStore('app', {
     notifications: [] as Array<{ id: string; title: string; content: string; read_at?: string }>,
     qr: null as { token: string; expiresIn: number } | null,
     adminAccess: false,
-    sportsStatus: 'idle' as SectionStatus,
-    organizationMembersStatus: 'idle' as SectionStatus,
     competitionsStatus: 'idle' as SectionStatus,
     leaderboardStatus: 'idle' as SectionStatus,
     announcementsStatus: 'idle' as SectionStatus,
@@ -203,7 +179,6 @@ export const useAppStore = defineStore('app', {
     signedIn: (state) => Boolean(state.accessToken),
     isMember: (state) => Boolean(state.rating),
     canManage: (state) => state.adminAccess,
-    canManageRoles: (state) => state.myRoles.includes('PRESIDENT') || state.myRoles.includes('ADVISOR'),
     ratingText: (state) => state.rating ? String(state.rating.current_rating) : '—',
     winRate: (state) => {
       if (!state.rating || state.rating.rated_matches === 0) return '—'
@@ -237,8 +212,6 @@ export const useAppStore = defineStore('app', {
       this.ratingHistory = []
       this.application = null
       this.adminApplications = []
-      this.myRoles = []
-      this.organizationMembers = []
       this.adminAccess = false
       this.qr = null
       this.profileStatus = 'idle'
@@ -372,23 +345,11 @@ export const useAppStore = defineStore('app', {
       this.notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value || [] : []
       this.application = applicationResult.status === 'fulfilled' ? applicationResult.value : null
       try {
-        this.myRoles = await api.get<RoleCode[]>('/organization/me/roles')
-      } catch (error) {
-        this.myRoles = []
-        console.error('[organization-roles] load failed', error)
-      }
-      this.adminAccess = this.myRoles.some(role =>
-        ['ADMIN', 'VICE_MINISTER', 'MINISTER', 'VICE_PRESIDENT', 'PRESIDENT', 'ADVISOR'].includes(role)
-      )
-      if (this.adminAccess) {
-        try {
-          this.adminApplications = await api.get<MembershipApplication[]>('/admin/membership/applications')
-        } catch (error) {
-          this.adminApplications = []
-          console.error('[admin-applications] load failed', error)
-        }
-      } else {
+        this.adminApplications = await api.get<MembershipApplication[]>('/admin/membership/applications')
+        this.adminAccess = true
+      } catch {
         this.adminApplications = []
+        this.adminAccess = false
       }
     },
     async register(account: string, password: string, nickname: string) {
@@ -469,40 +430,6 @@ export const useAppStore = defineStore('app', {
         await this.loadCompetitions().catch(() => undefined)
       }, '赛事资料已保存')
     },
-    async loadSports() {
-      this.sportsStatus = 'loading'
-      try {
-        this.sports = await api.get<Sport[]>('/sports') || []
-        this.sportsStatus = this.sports.length ? 'success' : 'empty'
-      } catch (error) {
-        this.sportsStatus = 'error'
-        console.error('[sports] load failed', error)
-        throw error
-      }
-    },
-    async createSport(payload: { code: string; name: string }) {
-      await this.run(async () => {
-        await api.post('/admin/sports', payload)
-        await this.loadSports()
-      }, '运动类型已添加')
-    },
-    async loadOrganizationMembers() {
-      this.organizationMembersStatus = 'loading'
-      try {
-        this.organizationMembers = await api.get<OrganizationMember[]>('/admin/members') || []
-        this.organizationMembersStatus = this.organizationMembers.length ? 'success' : 'empty'
-      } catch (error) {
-        this.organizationMembersStatus = 'error'
-        console.error('[organization-members] load failed', error)
-        throw error
-      }
-    },
-    async setMemberRole(userId: string, roleCode: RoleCode, active: boolean) {
-      await this.run(async () => {
-        await api.put(`/admin/members/${userId}/roles`, { roleCode, active })
-        await this.loadOrganizationMembers()
-      }, active ? '职务已授予' : '职务已撤销')
-    },
     async reviewCompetitionEntry(entryId: string, approve: boolean) {
       await this.run(async () => {
         await api.post(`/admin/competition-entries/${entryId}/${approve ? 'approve' : 'reject'}`)
@@ -525,11 +452,11 @@ export const useAppStore = defineStore('app', {
       this.entries = entries || []
       this.selectedCompetitionId = id
     },
-    async competitionCommand(action: 'publish' | 'close-registration' | 'arrange' | 'start' | 'enter-result-confirming' | 'finalize') {
+    async competitionCommand(action: 'publish' | 'close-registration' | 'arrange' | 'start' | 'enter-result-confirming' | 'finalize', seed?: number) {
       const id = this.selectedCompetitionId
       if (!id) return
       await this.run(async () => {
-        const body = action === 'arrange' ? { seed: 20261001 } : undefined
+        const body = action === 'arrange' ? { seed: seed ?? Date.now() } : undefined
         await api.post(`/admin/competitions/${id}/${action}`, body)
         await this.loadCompetitionDetail(id)
         await this.loadCompetitions().catch(() => undefined)
@@ -617,18 +544,10 @@ export const useAppStore = defineStore('app', {
           content: '仅信息展示，交易自行核实。',
           visibility: 'PUBLIC',
           price: '面议',
-          contact: '站内通知',
-          marketplaceCondition: '九成新',
-          deliveryMethod: '当面交付',
-          rulesAccepted: true
+          contact: '站内通知'
         })
         await this.loadMarketPosts().catch(() => undefined)
       }, '二手信息已发布')
-    },
-    async reportMarketPost(id: string, reason: string) {
-      await this.run(async () => {
-        await api.post(`/market-posts/${id}/reports`, { reason })
-      }, '举报已提交，管理员将核查')
     },
     async markMarketSold(id: string) {
       await this.run(async () => {

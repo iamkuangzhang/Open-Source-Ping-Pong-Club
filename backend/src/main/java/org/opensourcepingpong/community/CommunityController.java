@@ -45,31 +45,6 @@ public class CommunityController {
     return posts("MARKETPLACE", principal, true);
   }
 
-  @GetMapping("/admin/market-reports")
-  ApiResponse<?> pendingMarketReports(@AuthenticationPrincipal AuthPrincipal principal) {
-    auth.require(principal.userId(), Permission.MARKETPLACE_MODERATE);
-    return ApiResponse.ok(jdbc.queryForList("""
-        select r.id report_id,r.post_id,r.reason,r.details,r.created_at reported_at,
-               p.title,p.content,p.price,p.marketplace_condition,p.delivery_method,
-               p.status post_status
-        from marketplace_reports r
-        join community_posts p on p.id=r.post_id
-        where r.status='PENDING'
-        order by r.created_at asc
-        """));
-  }
-
-  @GetMapping("/admin/market-posts/hidden")
-  ApiResponse<?> hiddenMarketPosts(@AuthenticationPrincipal AuthPrincipal principal) {
-    auth.require(principal.userId(), Permission.MARKETPLACE_MODERATE);
-    return ApiResponse.ok(jdbc.queryForList("""
-        select id,title,content,price,marketplace_condition,delivery_method,updated_at
-        from community_posts
-        where post_type='MARKETPLACE' and status='MODERATION_HIDDEN'
-        order by updated_at desc
-        """));
-  }
-
   @GetMapping({"/announcements/{id}", "/play-posts/{id}", "/meetups/{id}", "/market-posts/{id}", "/marketplace/{id}"})
   ApiResponse<?> detail(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID id) {
     var rows = jdbc.queryForList("""
@@ -80,9 +55,6 @@ public class CommunityController {
         """, id);
     if (rows.isEmpty()) throw new BusinessException(HttpStatus.NOT_FOUND, "COMMUNITY_POST_NOT_FOUND", "post not found");
     var post = rows.getFirst();
-    if ("MARKETPLACE".equals(post.get("post_type")) && "MODERATION_HIDDEN".equals(post.get("status"))) {
-      throw new BusinessException(HttpStatus.NOT_FOUND, "MARKET_POST_NOT_FOUND", "post not found");
-    }
     if (!visible(post, principal)) throw new BusinessException(HttpStatus.FORBIDDEN, "PERMISSION_DENIED", "post is members only");
     return ApiResponse.ok(post);
   }
@@ -157,10 +129,6 @@ public class CommunityController {
 
   @PostMapping({"/market-posts", "/marketplace"})
   ApiResponse<Map<String, UUID>> market(@AuthenticationPrincipal AuthPrincipal p, @Valid @RequestBody Create r) {
-    if (!r.rulesAccepted()) {
-      throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, "MARKET_RULES_REQUIRED", "请先确认二手交易规则");
-    }
-    requireMarketDetails(r);
     return create(p.userId(), "MARKETPLACE", "ON_SALE", r);
   }
 
@@ -169,129 +137,17 @@ public class CommunityController {
     requireOwner(id, p.userId(), "MARKETPLACE", "MARKET_POST_NOT_FOUND", "MARKET_POST_NOT_OWNER");
     int changed = jdbc.update("""
         update community_posts
-        set title=?,content=?,visibility=?,expires_at=?,price=?,contact=?,
-            marketplace_condition=coalesce(?,marketplace_condition),
-            delivery_method=coalesce(?,delivery_method),updated_at=current_timestamp
-        where id=? and post_type='MARKETPLACE' and status not in ('SOLD','MODERATION_HIDDEN')
-        """, r.title(), r.content(), visibility(r.visibility()), sqlTimestamp(r.expiresAt()), r.price(), r.contact(),
-        r.marketplaceCondition(), r.deliveryMethod(), id);
-    if (changed != 1) throw new BusinessException(HttpStatus.CONFLICT, "MARKET_POST_NOT_EDITABLE", "market post cannot be edited");
+        set title=?,content=?,visibility=?,expires_at=?,price=?,contact=?,updated_at=current_timestamp
+        where id=? and post_type='MARKETPLACE' and status <> 'SOLD'
+        """, r.title(), r.content(), visibility(r.visibility()), sqlTimestamp(r.expiresAt()), r.price(), r.contact(), id);
+    if (changed != 1) throw new BusinessException(HttpStatus.CONFLICT, "MARKET_POST_SOLD", "sold post cannot be edited");
     return ApiResponse.ok(null);
   }
 
   @PostMapping({"/market-posts/{id}/mark-sold", "/marketplace/{id}/mark-sold"})
   ApiResponse<Void> markSold(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id) {
     requireOwner(id, p.userId(), "MARKETPLACE", "MARKET_POST_NOT_FOUND", "MARKET_POST_NOT_OWNER");
-    if (jdbc.update("""
-        update community_posts set status='SOLD',updated_at=current_timestamp
-        where id=? and post_type='MARKETPLACE' and status in ('ON_SALE','PUBLISHED')
-        """, id) != 1) {
-      throw new BusinessException(HttpStatus.CONFLICT, "MARKET_POST_NOT_EDITABLE", "market post cannot be marked sold");
-    }
-    return ApiResponse.ok(null);
-  }
-
-  @PostMapping("/market-posts/{id}/reports")
-  ApiResponse<Map<String, UUID>> reportMarketPost(
-      @AuthenticationPrincipal AuthPrincipal principal,
-      @PathVariable UUID id,
-      @Valid @RequestBody MarketReportRequest request) {
-    var post = jdbc.queryForList(
-        "select id,author_user_id,status from community_posts where id=? and post_type='MARKETPLACE'", id);
-    if (post.isEmpty() || "MODERATION_HIDDEN".equals(post.getFirst().get("status"))) {
-      throw new BusinessException(HttpStatus.NOT_FOUND, "MARKET_POST_NOT_FOUND", "post not found");
-    }
-    if (principal.userId().equals(post.getFirst().get("author_user_id"))) {
-      throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, "MARKET_REPORT_SELF", "不能举报自己的商品");
-    }
-    UUID reportId = UUID.randomUUID();
-    try {
-      jdbc.update("""
-          insert into marketplace_reports(id,post_id,reporter_user_id,reason,details)
-          values(?,?,?,?,?)
-          """, reportId, id, principal.userId(), request.reason().name(), request.details());
-    } catch (DuplicateKeyException exception) {
-      throw new BusinessException(HttpStatus.CONFLICT, "MARKET_REPORT_EXISTS", "你已提交该商品的待处理举报");
-    }
-    return ApiResponse.ok(Map.of("id", reportId));
-  }
-
-  @PutMapping("/admin/market-reports/{reportId}")
-  @Transactional
-  ApiResponse<Void> resolveMarketReport(
-      @AuthenticationPrincipal AuthPrincipal principal,
-      @PathVariable UUID reportId,
-      @Valid @RequestBody MarketReportResolution resolution) {
-    auth.require(principal.userId(), Permission.MARKETPLACE_MODERATE);
-    var rows = jdbc.queryForList("""
-        select r.post_id,r.status,p.author_user_id
-        from marketplace_reports r
-        join community_posts p on p.id=r.post_id
-        where r.id=? and p.post_type='MARKETPLACE'
-        for update of r,p
-        """, reportId);
-    if (rows.isEmpty()) {
-      throw new BusinessException(HttpStatus.NOT_FOUND, "MARKET_REPORT_NOT_FOUND", "举报不存在");
-    }
-    var report = rows.getFirst();
-    if (!"PENDING".equals(report.get("status"))) {
-      throw new BusinessException(HttpStatus.CONFLICT, "MARKET_REPORT_ALREADY_REVIEWED", "举报已处理");
-    }
-    UUID postId = (UUID) report.get("post_id");
-    Instant now = Instant.now();
-    if (resolution.action() == MarketReportAction.HIDE) {
-      jdbc.update("""
-          update community_posts
-          set moderation_previous_status=status,status='MODERATION_HIDDEN',updated_at=?
-          where id=? and status<>'MODERATION_HIDDEN'
-          """, sqlTimestamp(now), postId);
-      jdbc.update("""
-          insert into notifications(id,user_id,notification_type,title,content)
-          values(?,?,?,?,?)
-          """, UUID.randomUUID(), report.get("author_user_id"), "MARKETPLACE_MODERATION",
-          "二手信息暂时下架待核查", "你的二手信息收到举报，已暂时隐藏供管理员核查。请勿在公开内容中填写验证码、付款链接或敏感个人信息。");
-    }
-    jdbc.update("""
-        update marketplace_reports
-        set status='REVIEWED',reviewer_user_id=?,review_action=?,review_note=?,reviewed_at=?
-        where id=?
-        """, principal.userId(), resolution.action().name(), resolution.reviewNote(), sqlTimestamp(now), reportId);
-    jdbc.update("""
-        insert into audit_logs(id,operator_user_id,action,target_type,target_id,after_json,reason,created_at)
-        values(?,?,?,?,?,jsonb_build_object('action',?,'reportId',?),?,?)
-        """, UUID.randomUUID(), principal.userId(),
-        resolution.action() == MarketReportAction.HIDE ? "MARKETPLACE_POST_HIDDEN" : "MARKETPLACE_REPORT_DISMISSED",
-        "MARKETPLACE_POST", postId, resolution.action().name(), reportId, resolution.reviewNote(), sqlTimestamp(now));
-    return ApiResponse.ok(null);
-  }
-
-  @PostMapping("/admin/market-posts/{id}/restore")
-  @Transactional
-  ApiResponse<Void> restoreHiddenMarketPost(
-      @AuthenticationPrincipal AuthPrincipal principal,
-      @PathVariable UUID id,
-      @Valid @RequestBody(required = false) MarketPostRestoreRequest request) {
-    auth.require(principal.userId(), Permission.MARKETPLACE_MODERATE);
-    Instant now = Instant.now();
-    int changed = jdbc.update("""
-        update community_posts
-        set status=coalesce(moderation_previous_status,'ON_SALE'),
-            moderation_previous_status=null,updated_at=?
-        where id=? and post_type='MARKETPLACE' and status='MODERATION_HIDDEN'
-        """, sqlTimestamp(now), id);
-    if (changed != 1) {
-      throw new BusinessException(HttpStatus.NOT_FOUND, "MARKET_POST_NOT_HIDDEN", "待恢复的二手信息不存在");
-    }
-    String note = request == null ? null : request.reviewNote();
-    jdbc.update("""
-        insert into notifications(id,user_id,notification_type,title,content)
-        select ?,author_user_id,'MARKETPLACE_MODERATION','二手信息已恢复展示',?
-        from community_posts where id=?
-        """, UUID.randomUUID(), "管理员已完成核查，你的二手信息已恢复展示。", id);
-    jdbc.update("""
-        insert into audit_logs(id,operator_user_id,action,target_type,target_id,after_json,reason,created_at)
-        values(?,?,?,'MARKETPLACE_POST',?,jsonb_build_object('status','RESTORED'),?,?)
-        """, UUID.randomUUID(), principal.userId(), "MARKETPLACE_POST_RESTORED", id, note, sqlTimestamp(now));
+    jdbc.update("update community_posts set status='SOLD',updated_at=current_timestamp where id=? and post_type='MARKETPLACE'", id);
     return ApiResponse.ok(null);
   }
 
@@ -319,11 +175,10 @@ public class CommunityController {
     String statusFilter = includeSold ? "status in ('ON_SALE','SOLD','PUBLISHED')" : "status='PUBLISHED'";
     return ApiResponse.ok(jdbc.queryForList("""
         select p.id,p.post_type,p.title,p.content,p.author_user_id,p.status,p.visibility,p.expires_at,p.max_participants,
-               p.event_time,p.location,p.contact,p.price,p.marketplace_condition,p.delivery_method,p.created_at,
+               p.event_time,p.location,p.contact,p.price,p.created_at,
                (select count(*) from meetup_participants mp where mp.post_id=p.id) as participant_count
         from community_posts p
         where p.post_type=? and %s and (p.expires_at is null or p.expires_at>current_timestamp)
-          and p.status<>'MODERATION_HIDDEN'
           and (p.visibility='PUBLIC' or ?)
         order by p.created_at desc
         """.formatted(statusFilter), type, canSeeMembersOnly));
@@ -332,23 +187,10 @@ public class CommunityController {
   private ApiResponse<Map<String, UUID>> create(UUID user, String type, String status, Create r) {
     UUID id = UUID.randomUUID();
     jdbc.update("""
-        insert into community_posts(
-          id,post_type,title,content,author_user_id,status,visibility,expires_at,max_participants,event_time,
-          location,contact,price,marketplace_condition,delivery_method,market_rules_accepted_at)
-        values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, id, type, r.title(), r.content(), user, status, visibility(r.visibility()), sqlTimestamp(r.expiresAt()),
-        r.maxParticipants(), sqlTimestamp(r.eventTime()), r.location(), r.contact(), r.price(),
-        type.equals("MARKETPLACE") ? r.marketplaceCondition() : null,
-        type.equals("MARKETPLACE") ? r.deliveryMethod() : null,
-        type.equals("MARKETPLACE") ? sqlTimestamp(Instant.now()) : null);
+        insert into community_posts(id,post_type,title,content,author_user_id,status,visibility,expires_at,max_participants,event_time,location,contact,price)
+        values(?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, id, type, r.title(), r.content(), user, status, visibility(r.visibility()), sqlTimestamp(r.expiresAt()), r.maxParticipants(), sqlTimestamp(r.eventTime()), r.location(), r.contact(), r.price());
     return ApiResponse.ok(Map.of("id", id));
-  }
-
-  private static void requireMarketDetails(Create request) {
-    if (request.marketplaceCondition() == null || request.marketplaceCondition().isBlank()
-        || request.deliveryMethod() == null || request.deliveryMethod().isBlank()) {
-      throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, "MARKET_DETAILS_REQUIRED", "请填写物品成色和交付方式");
-    }
   }
 
   private boolean visible(Map<String, Object> post, AuthPrincipal principal) {
@@ -365,30 +207,6 @@ public class CommunityController {
     if (rows.isEmpty()) throw new BusinessException(HttpStatus.NOT_FOUND, missingCode, "post not found");
     if (!user.equals(rows.getFirst().get("author_user_id"))) throw new BusinessException(HttpStatus.FORBIDDEN, ownerCode, "not post owner");
   }
-
-  public enum MarketReportReason {
-    SUSPECTED_FRAUD,
-    PROHIBITED_GOODS,
-    MISLEADING,
-    HARASSMENT,
-    PRIVACY,
-    OTHER
-  }
-
-  public enum MarketReportAction {
-    HIDE,
-    DISMISS
-  }
-
-  public record MarketReportRequest(
-      @jakarta.validation.constraints.NotNull MarketReportReason reason,
-      @Size(max = 500) String details) {}
-
-  public record MarketReportResolution(
-      @jakarta.validation.constraints.NotNull MarketReportAction action,
-      @Size(max = 500) String reviewNote) {}
-
-  public record MarketPostRestoreRequest(@Size(max = 500) String reviewNote) {}
 
   private Map<String, Object> one(String sql, Object... args) {
     var rows = jdbc.queryForList(sql, args);
@@ -417,8 +235,5 @@ public class CommunityController {
       Instant eventTime,
       @Size(max = 200) String location,
       @Size(max = 120) String contact,
-      @Size(max = 60) String price,
-      @Size(max = 40) String marketplaceCondition,
-      @Size(max = 30) String deliveryMethod,
-      boolean rulesAccepted) {}
+      @Size(max = 60) String price) {}
 }

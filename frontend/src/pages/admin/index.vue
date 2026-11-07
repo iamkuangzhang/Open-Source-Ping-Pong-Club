@@ -40,14 +40,6 @@ async function publish() {
         <view><text class="row-title">创建赛事</text><text class="row-meta">创建单淘汰或小组循环比赛</text></view>
         <AppIcon name="chevron-right" />
       </view>
-      <view class="admin-row" @click="go('/pages/admin/sports')">
-        <view><text class="row-title">运动类型管理</text><text class="row-meta">查看目录并添加新的球类</text></view>
-        <AppIcon name="chevron-right" />
-      </view>
-      <view class="admin-row" @click="go('/pages/admin/market-reports')">
-        <view><text class="row-title">二手信息治理</text><text class="row-meta">处理用户举报、隐藏违规信息或恢复展示</text></view>
-        <AppIcon name="chevron-right" />
-      </view>
       <view class="admin-row" @click="showAnnouncement = !showAnnouncement">
         <view><text class="row-title">公告管理</text><text class="row-meta">发布公开或成员公告</text></view>
         <text class="toggle-label">{{ showAnnouncement ? '收起' : '展开' }}</text>

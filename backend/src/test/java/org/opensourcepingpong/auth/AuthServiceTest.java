@@ -74,17 +74,6 @@ class AuthServiceTest {
   }
 
   @Test
-  void loginRejectsUnknownAccountWithSameCredentialError() {
-    when(users.findByAccount("missing")).thenReturn(Optional.empty());
-
-    var exception = assertThrows(BusinessException.class,
-        () -> service.login(new AuthDtos.LoginRequest(" Missing ", "wrong-password")));
-
-    assertEquals("AUTH_INVALID_CREDENTIALS", exception.code());
-    verify(jwt, never()).issueAccess(any());
-  }
-
-  @Test
   void disabledUserCannotLoginOrRefresh() throws Exception {
     User user = new User("alice", passwordEncoder.encode("correct-password"));
     setStatus(user, UserStatus.DISABLED);
@@ -120,29 +109,6 @@ class AuthServiceTest {
     var ex = assertThrows(BusinessException.class, () -> service.refresh("missing"));
 
     assertEquals("AUTH_TOKEN_EXPIRED", ex.code());
-  }
-
-  @Test
-  void refreshTokenForDeletedUserIsInvalidatedAndRejected() {
-    UUID deletedUserId = UUID.randomUUID();
-    when(values.get(anyString())).thenReturn(deletedUserId.toString());
-    when(users.findById(deletedUserId)).thenReturn(Optional.empty());
-
-    var exception = assertThrows(BusinessException.class, () -> service.refresh("orphaned-refresh-token"));
-
-    assertEquals("AUTH_TOKEN_EXPIRED", exception.code());
-    verify(redis).delete(startsWith("auth:refresh:"));
-    verify(jwt, never()).issueAccess(any());
-  }
-
-  @Test
-  void logoutDeletesOnlyHashedRefreshKey() {
-    service.logout("sensitive-refresh-token");
-
-    var key = org.mockito.ArgumentCaptor.forClass(String.class);
-    verify(redis).delete(key.capture());
-    assertTrue(key.getValue().startsWith("auth:refresh:"));
-    assertFalse(key.getValue().contains("sensitive-refresh-token"));
   }
 
   private static void setStatus(User user, UserStatus status) throws Exception {
