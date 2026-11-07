@@ -7,6 +7,7 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import LoadingState from '../../components/LoadingState.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import { useAppStore } from '../../stores/app'
+import { api } from '../../services/api'
 import { go } from '../../utils/ui'
 
 const store = useAppStore()
@@ -33,11 +34,30 @@ const actions = computed(() => {
 
 async function act(key: string) {
   const status = detail.value?.status
-  if (key === 'arrange') return command('arrange')
+  if (key === 'entries') return uni.pageScrollTo({ selector: '#competition-entries', duration: 250 })
+  if (key === 'arrange') return previewArrangement()
   if (key === 'score') return go(detail.value?.format === 'ROUND_ROBIN' ? '/pages/competition/groups' : '/pages/competition/bracket', { id: id.value, manage: 1 })
   if (key === 'settings') return go('/pages/competition/create', { id: id.value })
   if (key === 'control') return command(status === 'DRAFT' ? 'publish' : status === 'REGISTRATION' ? 'close-registration' : 'start')
   if (key === 'result') return command(status === 'RUNNING' ? 'enter-result-confirming' : 'finalize')
+}
+
+async function previewArrangement() {
+  const seed = Date.now()
+  try {
+    const preview = await api.get<{ participantCount: number; matches: Array<{ bye: boolean }> }>(`/admin/competitions/${id.value}/arrangement-preview?seed=${seed}`)
+    const byes = preview.matches.filter(match => match.bye).length
+    const confirmed = await new Promise<boolean>((resolve) => uni.showModal({
+      title: '确认赛事编排',
+      content: `${preview.participantCount} 人参赛，预计 ${preview.matches.length} 场${byes ? `，其中 ${byes} 场轮空` : ''}。确认后将生成正式赛程。`,
+      confirmText: '确认编排',
+      success: result => resolve(result.confirm)
+    }))
+    if (confirmed) await store.competitionCommand('arrange', seed)
+  } catch (error) {
+    console.error('[competition] arrangement preview failed', error)
+    uni.showToast({ title: '暂时无法预览赛程，请稍后重试', icon: 'none' })
+  }
 }
 
 async function command(action: string) {
@@ -69,7 +89,7 @@ async function command(action: string) {
           <text v-else class="unavailable">—</text>
         </view>
       </view>
-      <view class="section">
+      <view id="competition-entries" class="section">
         <text class="section-title">报名人员</text>
         <EmptyState v-if="!store.entries.length" title="暂无报名人员" />
         <view v-else class="menu-list">

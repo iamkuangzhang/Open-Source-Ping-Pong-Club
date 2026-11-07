@@ -2,7 +2,8 @@ param(
   [string]$BaseUrl = "http://127.0.0.1:8080/api/v1",
   [string]$EnvFile = "backend/.env.local",
   [int]$Seed = 202601,
-  [switch]$UiDemo
+  [switch]$UiDemo,
+  [switch]$Sprint2Gate
 )
 
 $ErrorActionPreference = "Stop"
@@ -208,6 +209,9 @@ foreach ($user in $users) {
   Invoke-Api "POST" "/competitions/$($se.id)/entries" $null $user.accessToken | Out-Null
 }
 Invoke-Api "POST" "/admin/competitions/$($se.id)/close-registration" $null $manager.accessToken | Out-Null
+$sePreview = Invoke-Api "GET" "/admin/competitions/$($se.id)/arrangement-preview?seed=$Seed" $null $manager.accessToken
+Assert-True (@($sePreview.matches).Count -eq 7) "8-player knockout preview must contain 7 matches"
+Assert-True ((Invoke-Api "GET" "/competitions/$($se.id)/schedule").Count -eq 0) "Preview must not persist matches"
 Invoke-Api "POST" "/admin/competitions/$($se.id)/arrange" @{ seed = $Seed } $manager.accessToken | Out-Null
 Invoke-Api "POST" "/admin/competitions/$($se.id)/start" $null $manager.accessToken | Out-Null
 Run-All-Matches $manager $se.id
@@ -228,6 +232,8 @@ foreach ($user in @($users | Select-Object -First 4)) {
   Invoke-Api "POST" "/competitions/$($rr.id)/entries" $null $user.accessToken | Out-Null
 }
 Invoke-Api "POST" "/admin/competitions/$($rr.id)/close-registration" $null $manager.accessToken | Out-Null
+$rrPreview = Invoke-Api "GET" "/admin/competitions/$($rr.id)/arrangement-preview?seed=$Seed" $null $manager.accessToken
+Assert-True (@($rrPreview.matches).Count -eq 6) "4-player round-robin preview must contain 6 matches"
 Invoke-Api "POST" "/admin/competitions/$($rr.id)/arrange" @{ seed = $Seed } $manager.accessToken | Out-Null
 $rrSchedule = @(Invoke-Api "GET" "/competitions/$($rr.id)/schedule")
 Assert-True ($rrSchedule.Count -eq 6) "Round robin did not create 6 matches for 4 players"
@@ -235,6 +241,23 @@ Invoke-Api "POST" "/admin/competitions/$($rr.id)/start" $null $manager.accessTok
 Run-All-Matches $manager $rr.id
 Invoke-Api "POST" "/admin/competitions/$($rr.id)/enter-result-confirming" $null $manager.accessToken | Out-Null
 Invoke-Api "POST" "/admin/competitions/$($rr.id)/finalize" $null $manager.accessToken | Out-Null
+
+if ($Sprint2Gate) {
+  for ($i = 9; $i -le 13; $i++) {
+    $users += Register-User "$prefix`_p$i" $password "E2E P$i"
+  }
+  $thirteen = Create-Competition $manager "$prefix 13 Player Bracket" "SINGLE_ELIMINATION" "DAILY" 13
+  Invoke-Api "POST" "/admin/competitions/$($thirteen.id)/publish" $null $manager.accessToken | Out-Null
+  foreach ($user in $users) { Invoke-Api "POST" "/competitions/$($thirteen.id)/entries" $null $user.accessToken | Out-Null }
+  Invoke-Api "POST" "/admin/competitions/$($thirteen.id)/close-registration" $null $manager.accessToken | Out-Null
+  $preview13 = Invoke-Api "GET" "/admin/competitions/$($thirteen.id)/arrangement-preview?seed=$Seed" $null $manager.accessToken
+  Assert-True (@($preview13.matches).Count -eq 15) "13-player preview must contain 15 matches"
+  Assert-True (@($preview13.matches | Where-Object { $_.bye }).Count -eq 3) "13-player preview must contain 3 BYEs"
+  Invoke-Api "POST" "/admin/competitions/$($thirteen.id)/arrange" @{ seed = $Seed } $manager.accessToken | Out-Null
+  $schedule13 = @(Invoke-Api "GET" "/competitions/$($thirteen.id)/schedule")
+  Assert-True ($schedule13.Count -eq 15) "13-player confirmed schedule must contain 15 matches"
+  Assert-True (@($schedule13 | Where-Object { $_.result_type -eq 'BYE' }).Count -eq 3) "13-player confirmed schedule must contain 3 BYEs"
+}
 
 if ($UiDemo) {
   foreach ($demoCompetition in $demo.openCompetitions) {
