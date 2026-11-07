@@ -452,11 +452,11 @@ export const useAppStore = defineStore('app', {
       this.entries = entries || []
       this.selectedCompetitionId = id
     },
-    async competitionCommand(action: 'publish' | 'close-registration' | 'arrange' | 'start' | 'enter-result-confirming' | 'finalize') {
+    async competitionCommand(action: 'publish' | 'close-registration' | 'arrange' | 'start' | 'enter-result-confirming' | 'finalize', seed?: number) {
       const id = this.selectedCompetitionId
       if (!id) return
       await this.run(async () => {
-        const body = action === 'arrange' ? { seed: 20261001 } : undefined
+        const body = action === 'arrange' ? { seed: seed ?? Date.now() } : undefined
         await api.post(`/admin/competitions/${id}/${action}`, body)
         await this.loadCompetitionDetail(id)
         await this.loadCompetitions().catch(() => undefined)
