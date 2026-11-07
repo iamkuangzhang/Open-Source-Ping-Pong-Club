@@ -11,6 +11,7 @@ import org.opensourcepingpong.auth.AuthPrincipal;
 import org.opensourcepingpong.common.api.BusinessException;
 import org.opensourcepingpong.organization.AuthorizationService;
 import org.opensourcepingpong.organization.Permission;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class MatchControllerTest {
@@ -50,7 +51,7 @@ class MatchControllerTest {
   void scoreCompletesPlayingMatchAndAdvancesWinner() {
     UUID match = UUID.randomUUID(), a = UUID.randomUUID(), b = UUID.randomUUID();
     when(jdbc.queryForList(startsWith("select player_a_user_id"), eq(match))).thenReturn(List.of(matchRow(a, b, "PLAYING", 3, 2)));
-    when(jdbc.update(startsWith("update matches set status='COMPLETED'"), any(), any(), anyInt(), anyInt(), any(), eq(match), eq(2L))).thenReturn(1);
+    when(jdbc.update(startsWith("update matches m set status='COMPLETED'"), any(), any(), anyInt(), anyInt(), any(), eq(match), eq(2L))).thenReturn(1);
     when(jdbc.update(startsWith("delete from match_games"), eq(match))).thenReturn(1);
     when(jdbc.update(startsWith("insert into match_games"), any(), eq(match), anyInt(), anyInt(), anyInt(), any())).thenReturn(1);
     controller.score(principal, match, new MatchController.ScoreRequest(2, List.of(
@@ -70,6 +71,7 @@ class MatchControllerTest {
         new MatchController.ScoreRequest(2, List.of(new MatchController.Game(11, 8), new MatchController.Game(11, 8)))));
 
     assertEquals("MATCH_VERSION_CONFLICT", ex.code());
+    assertEquals(HttpStatus.CONFLICT, ex.status());
     verify(schedules, never()).advance(any(), any());
   }
 
