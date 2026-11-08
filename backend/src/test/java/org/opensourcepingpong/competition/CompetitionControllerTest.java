@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.longThat;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -28,6 +28,7 @@ import org.opensourcepingpong.organization.Permission;
 import org.opensourcepingpong.rating.RatingSettlementService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.core.PreparedStatementSetter;
 
 class CompetitionControllerTest {
   private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
@@ -48,13 +49,13 @@ class CompetitionControllerTest {
     UUID sportId = UUID.randomUUID();
     when(jdbc.queryForList("select id from sports where code=? and active=true", "PING_PONG"))
         .thenReturn(List.of(Map.of("id", sportId)));
-    when(jdbc.update(any(PreparedStatementCreator.class))).thenReturn(1);
+    when(jdbc.update(anyString(), any(PreparedStatementSetter.class))).thenReturn(1);
 
     var response = controller.create(principal, request(CompetitionType.RATED, null, 5));
 
     assertTrue(response.data().containsKey("id"));
     verify(authorization).require(userId, Permission.COMPETITION_CREATE);
-    verify(jdbc).update(any(PreparedStatementCreator.class));
+    verify(jdbc).update(anyString(), any(PreparedStatementSetter.class));
   }
 
   @Test
@@ -159,7 +160,7 @@ class CompetitionControllerTest {
     when(jdbc.queryForList(startsWith("select status,max_participants"), eq(competitionId)))
         .thenReturn(List.of(Map.of("status", "REGISTRATION", "max_participants", 8, "registration_requires_review", true)));
     when(jdbc.queryForObject(startsWith("select count(*)"), eq(Integer.class), eq(competitionId))).thenReturn(0);
-    when(jdbc.update(any(PreparedStatementCreator.class)))
+    when(jdbc.update(anyString(), any(PreparedStatementSetter.class)))
         .thenThrow(new org.springframework.dao.DuplicateKeyException("duplicate"));
 
     BusinessException exception = assertThrows(
@@ -174,11 +175,11 @@ class CompetitionControllerTest {
     when(jdbc.queryForList(startsWith("select status,max_participants"), eq(competitionId)))
         .thenReturn(List.of(Map.of("status", "REGISTRATION", "max_participants", 8, "registration_requires_review", true)));
     when(jdbc.queryForObject(startsWith("select count(*)"), eq(Integer.class), eq(competitionId))).thenReturn(0);
-    when(jdbc.update(any(PreparedStatementCreator.class))).thenReturn(1);
+    when(jdbc.update(anyString(), any(PreparedStatementSetter.class))).thenReturn(1);
 
     controller.enter(principal, competitionId);
 
-    verify(jdbc).update(any(PreparedStatementCreator.class));
+    verify(jdbc).update(anyString(), any(PreparedStatementSetter.class));
   }
 
   @Test
@@ -203,7 +204,7 @@ class CompetitionControllerTest {
     controller.arrange(principal, competitionId, null);
 
     verify(schedules).arrange(userId, competitionId, 2026L);
-    verify(schedules).arrange(eq(userId), eq(competitionId), anyLong());
+    verify(schedules).arrange(eq(userId), eq(competitionId), longThat(seed -> seed != 2026L));
   }
 
   @Test

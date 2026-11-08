@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.opensourcepingpong.common.api.BusinessException;
+import org.opensourcepingpong.competition.algorithm.SingleEliminationBracketGenerator;
 import org.opensourcepingpong.organization.AuthorizationService;
 import org.opensourcepingpong.organization.Permission;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -86,7 +87,36 @@ class ScheduleServiceTest {
 
     verify(jdbc).update(startsWith("insert into competition_stages"), any(Object[].class));
     verify(jdbc, times(3)).update(startsWith("insert into matches"), any(Object[].class));
+    // 4 人 → 2 轮：仅首轮 2 场写入 next_match_id，决赛保持 next_match 为空
+    verify(jdbc, times(2)).update(startsWith("update matches set next_match_id"), any(Object[].class));
     verify(jdbc).update(startsWith("update competitions set status='READY'"), eq(2026L), any(), eq(competition));
+  }
+
+  @Test
+  void knockoutWritesSlotNumbersIntoCompetitionEntries() {
+    List<UUID> players = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+    when(jdbc.queryForList(startsWith("select format,best_of,status"), eq(competition)))
+        .thenReturn(List.of(competitionRow("SINGLE_ELIMINATION", "ARRANGING")));
+    when(jdbc.queryForList(startsWith("select user_id from competition_entries"), eq(UUID.class), eq(competition)))
+        .thenReturn(players);
+    Map<String, Object> nextMatch = new HashMap<>();
+    nextMatch.put("next_match_id", null);
+    nextMatch.put("winner_to_slot", "A");
+    when(jdbc.queryForList(startsWith("select next_match_id,winner_to_slot"), any(UUID.class)))
+        .thenReturn(List.of(nextMatch));
+
+    service.arrange(manager, competition, 7L);
+
+    var expectedSlots = SingleEliminationBracketGenerator.arrange(players, 7L);
+    verify(jdbc, times(3)).update(startsWith("update competition_entries set seed_number"), any(Object[].class));
+    for (int slot = 0; slot < expectedSlots.size(); slot++) {
+      UUID user = expectedSlots.get(slot);
+      if (user == null) {
+        continue; // BYE 槽位不对应任何参赛选手
+      }
+      verify(jdbc).update("update competition_entries set seed_number=? where competition_id=? and user_id=?",
+          slot + 1, competition, user);
+    }
   }
 
   @Test
