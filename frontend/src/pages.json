@@ -9,6 +9,8 @@
     { "path": "pages/competition/detail", "style": { "navigationStyle": "custom" } },
     { "path": "pages/competition/create", "style": { "navigationStyle": "custom" } },
     { "path": "pages/competition/manage", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/competition/entries", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/competition/arrange", "style": { "navigationStyle": "custom" } },
     { "path": "pages/competition/bracket", "style": { "navigationStyle": "custom" } },
     { "path": "pages/competition/groups", "style": { "navigationStyle": "custom" } },
     { "path": "pages/match/detail", "style": { "navigationStyle": "custom" } },

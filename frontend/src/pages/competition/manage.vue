@@ -5,9 +5,7 @@ import AppHeader from '../../components/AppHeader.vue'
 import AppIcon from '../../components/AppIcon.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import LoadingState from '../../components/LoadingState.vue'
-import EmptyState from '../../components/EmptyState.vue'
 import { useAppStore } from '../../stores/app'
-import { api } from '../../services/api'
 import { go } from '../../utils/ui'
 
 const store = useAppStore()
@@ -15,6 +13,8 @@ const id = ref('')
 const detail = computed(() => store.selectedCompetition)
 
 onLoad(async (query) => {
+  store.success = ''
+  store.error = ''
   id.value = String(query?.id || '')
   await store.bootstrap()
   await store.selectCompetition(id.value)
@@ -23,41 +23,53 @@ onLoad(async (query) => {
 const actions = computed(() => {
   const status = detail.value?.status
   return [
-    { key: 'entries', title: '报名管理', desc: `${store.entries.length} 名参赛者`, enabled: ['REGISTRATION', 'ARRANGING'].includes(status || '') },
-    { key: 'arrange', title: '赛事编排', desc: '生成并确认正式赛程', enabled: status === 'ARRANGING' },
-    { key: 'control', title: '比赛控制', desc: status === 'DRAFT' ? '发布赛事' : status === 'REGISTRATION' ? '关闭报名' : status === 'READY' ? '开始比赛' : '查看赛事状态', enabled: ['DRAFT', 'REGISTRATION', 'READY'].includes(status || '') },
-    { key: 'score', title: '比分管理', desc: `${store.completedMatches}/${store.schedule.length} 场已完成`, enabled: status === 'RUNNING' },
-    { key: 'result', title: '结果确认', desc: '检查结果并完成积分结算', enabled: ['RUNNING', 'RESULT_CONFIRMING'].includes(status || '') },
-    { key: 'settings', title: '赛事设置', desc: '编辑基础资料', enabled: ['DRAFT', 'REGISTRATION'].includes(status || '') }
+    {
+      key: 'entries',
+      title: '参赛名单',
+      desc: `${store.approvedEntryCount} 人已通过 · ${store.pendingEntryCount} 人待审核`,
+      enabled: ['REGISTRATION', 'ARRANGING', 'READY', 'RUNNING', 'RESULT_CONFIRMING', 'FINISHED', 'COMPLETED'].includes(status || '')
+    },
+    {
+      key: 'arrange',
+      title: '赛事编排',
+      desc: status === 'ARRANGING' ? '先看预览，再确认生成正式赛程' : '仅关闭报名后可编排',
+      enabled: status === 'ARRANGING'
+    },
+    {
+      key: 'control',
+      title: '比赛控制',
+      desc: status === 'DRAFT' ? '发布赛事' : status === 'REGISTRATION' ? '关闭报名' : status === 'READY' ? '开始比赛' : '查看赛事状态',
+      enabled: ['DRAFT', 'REGISTRATION', 'READY'].includes(status || '')
+    },
+    {
+      key: 'score',
+      title: '比分管理',
+      desc: `${store.completedMatches}/${store.schedule.length} 场已完成`,
+      enabled: status === 'RUNNING'
+    },
+    {
+      key: 'result',
+      title: '结果确认',
+      desc: '检查结果并完成积分结算',
+      enabled: ['RUNNING', 'RESULT_CONFIRMING'].includes(status || '')
+    },
+    {
+      key: 'settings',
+      title: '赛事设置',
+      desc: '编辑基础资料',
+      enabled: ['DRAFT', 'REGISTRATION'].includes(status || '')
+    }
   ]
 })
 
 async function act(key: string) {
   const status = detail.value?.status
-  if (key === 'entries') return uni.pageScrollTo({ selector: '#competition-entries', duration: 250 })
-  if (key === 'arrange') return previewArrangement()
+  if (key === 'entries') return go('/pages/competition/entries', { id: id.value })
+  if (key === 'arrange') return go('/pages/competition/arrange', { id: id.value })
   if (key === 'score') return go(detail.value?.format === 'ROUND_ROBIN' ? '/pages/competition/groups' : '/pages/competition/bracket', { id: id.value, manage: 1 })
   if (key === 'settings') return go('/pages/competition/create', { id: id.value })
   if (key === 'control') return command(status === 'DRAFT' ? 'publish' : status === 'REGISTRATION' ? 'close-registration' : 'start')
   if (key === 'result') return command(status === 'RUNNING' ? 'enter-result-confirming' : 'finalize')
-}
-
-async function previewArrangement() {
-  const seed = Date.now()
-  try {
-    const preview = await api.get<{ participantCount: number; matches: Array<{ bye: boolean }> }>(`/admin/competitions/${id.value}/arrangement-preview?seed=${seed}`)
-    const byes = preview.matches.filter(match => match.bye).length
-    const confirmed = await new Promise<boolean>((resolve) => uni.showModal({
-      title: '确认赛事编排',
-      content: `${preview.participantCount} 人参赛，预计 ${preview.matches.length} 场${byes ? `，其中 ${byes} 场轮空` : ''}。确认后将生成正式赛程。`,
-      confirmText: '确认编排',
-      success: result => resolve(result.confirm)
-    }))
-    if (confirmed) await store.competitionCommand('arrange', seed)
-  } catch (error) {
-    console.error('[competition] arrangement preview failed', error)
-    uni.showToast({ title: '暂时无法预览赛程，请稍后重试', icon: 'none' })
-  }
 }
 
 async function command(action: string) {
@@ -70,7 +82,15 @@ async function command(action: string) {
     }))
     if (!confirmed) return
   }
-  try { await store.competitionCommand(action) } catch { /* Store renders the API error. */ }
+  if (action === 'close-registration' && store.approvedEntryCount < 2) {
+    uni.showToast({ title: '已通过人数不足 2 人，无法关闭报名', icon: 'none' })
+    return
+  }
+  try {
+    await store.competitionCommand(action)
+  } catch {
+    // Store renders the API error in context.
+  }
 }
 </script>
 
@@ -89,14 +109,12 @@ async function command(action: string) {
           <text v-else class="unavailable">—</text>
         </view>
       </view>
-      <view id="competition-entries" class="section">
-        <text class="section-title">报名人员</text>
-        <EmptyState v-if="!store.entries.length" title="暂无报名人员" />
-        <view v-else class="menu-list">
-          <view v-for="entry in store.entries" :key="entry.id" class="list-row">
-            <view><text class="row-title">{{ entry.nickname || entry.real_name || `球友 ${entry.user_id.slice(0, 5)}` }}</text><text class="row-meta">{{ entry.status }}</text></view>
-            <view v-if="entry.status === 'PENDING'" class="review-actions"><button class="btn btn-secondary btn-small" @click="store.reviewCompetitionEntry(entry.id, false)">拒绝</button><button class="btn btn-primary btn-small" @click="store.reviewCompetitionEntry(entry.id, true)">通过</button></view>
-          </view>
+      <view class="section">
+        <text class="section-title">赛程概览</text>
+        <view class="stat-strip">
+          <view class="stat-item"><text class="stat-value">{{ store.approvedEntryCount }}</text><text class="stat-label">参赛人数</text></view>
+          <view class="stat-item"><text class="stat-value">{{ store.schedule.length }}</text><text class="stat-label">总场次</text></view>
+          <view class="stat-item"><text class="stat-value">{{ store.completedMatches }}</text><text class="stat-label">已完成</text></view>
         </view>
       </view>
     </template>
@@ -110,5 +128,4 @@ async function command(action: string) {
 .manage-row:last-child { border-bottom: 0; }
 .manage-row.disabled { opacity: .45; }
 .unavailable { color: #9fa6a2; font-size: 1.25rem; }
-.review-actions { display: flex; gap: .4rem; }
 </style>

@@ -38,6 +38,39 @@ export type CompetitionEntry = {
   nickname?: string
   real_name?: string
   seed_number?: number
+  registered_at?: string
+  approved_at?: string
+}
+
+export type ArrangePreviewMatch = {
+  round: number
+  match: number
+  playerA?: string | null
+  playerB?: string | null
+  bye?: boolean
+  nextMatch?: number | null
+}
+
+export type ArrangePreview = {
+  format: string
+  seed: number
+  participantCount: number
+  matches: ArrangePreviewMatch[]
+}
+
+export type ArrangeResult = {
+  expected: number
+  actual: number
+  consistent: boolean
+}
+
+export type AppNotification = {
+  id: string
+  title: string
+  content: string
+  read_at?: string
+  created_at?: string
+  notification_type?: string
 }
 
 export type Match = {
@@ -216,9 +249,15 @@ export const useAppStore = defineStore('app', {
     announcements: [] as Post[],
     playPosts: [] as Post[],
     marketPosts: [] as Post[],
-    notifications: [] as Array<{ id: string; title: string; content: string; read_at?: string }>,
+    notifications: [] as AppNotification[],
     qr: null as { token: string; expiresIn: number } | null,
     adminAccess: false,
+    arrangePreview: null as ArrangePreview | null,
+    arrangePreviewStatus: 'idle' as SectionStatus,
+    arrangeSeed: 0,
+    arrangeResult: null as ArrangeResult | null,
+    entriesStatus: 'idle' as SectionStatus,
+    notificationsStatus: 'idle' as SectionStatus,
     forumPosts: [] as ForumPost[],
     forumPostsPage: 1,
     forumPostsPages: 1,
@@ -268,6 +307,11 @@ export const useAppStore = defineStore('app', {
     unreadNotificationCount: (state) => state.notifications.filter(item => !item.read_at).length,
     approvedEntryCount: (state) => state.entries.filter(item => item.status === 'APPROVED').length,
     pendingEntryCount: (state) => state.entries.filter(item => item.status === 'PENDING').length,
+    rejectedEntryCount: (state) => state.entries.filter(item => item.status === 'REJECTED').length,
+    arrangePreviewRounds: (state) => state.arrangePreview && state.arrangePreview.matches.length
+      ? Math.max(...state.arrangePreview.matches.map(item => item.round))
+      : 0,
+    arrangePreviewByes: (state) => state.arrangePreview ? state.arrangePreview.matches.filter(item => item.bye).length : 0,
     userLabel: () => compactUser
   },
   actions: {
@@ -303,6 +347,11 @@ export const useAppStore = defineStore('app', {
       this.forumPostStatus = 'idle'
       this.forumComments = []
       this.forumCommentsStatus = 'idle'
+      this.notifications = []
+      this.notificationsStatus = 'idle'
+      this.arrangePreview = null
+      this.arrangePreviewStatus = 'idle'
+      this.arrangeResult = null
       this.qr = null
       this.profileStatus = 'idle'
       this.ratingSummaryStatus = 'idle'
@@ -419,7 +468,7 @@ export const useAppStore = defineStore('app', {
       const [ratingResult, historyResult, notificationsResult, applicationResult] = await Promise.allSettled([
         api.get<RatingAccount | null>('/ratings/me'),
         api.get<RatingLedger[]>('/ratings/me/history'),
-        api.get<Array<{ id: string; title: string; content: string; read_at?: string }>>('/notifications'),
+        api.get<AppNotification[]>('/notifications'),
         api.get<MembershipApplication>('/membership/applications/me')
       ])
       if (ratingResult.status === 'fulfilled') {
@@ -433,6 +482,9 @@ export const useAppStore = defineStore('app', {
       }
       this.ratingHistory = historyResult.status === 'fulfilled' ? historyResult.value || [] : []
       this.notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value || [] : []
+      this.notificationsStatus = notificationsResult.status === 'fulfilled'
+        ? (this.notifications.length ? 'success' : 'empty')
+        : 'error'
       this.application = applicationResult.status === 'fulfilled' ? applicationResult.value : null
       try {
         this.adminApplications = await api.get<MembershipApplication[]>('/admin/membership/applications')
@@ -527,6 +579,48 @@ export const useAppStore = defineStore('app', {
         await this.loadCompetitionDetail()
       }, approve ? '报名已通过' : '报名已拒绝')
     },
+    async loadCompetitionEntries(id = this.selectedCompetitionId) {
+      if (!id) return
+      this.entriesStatus = 'loading'
+      try {
+        this.entries = await api.get<CompetitionEntry[]>(`/admin/competitions/${id}/entries`) || []
+        this.entriesStatus = this.entries.length ? 'success' : 'empty'
+      } catch (error) {
+        this.entries = []
+        this.entriesStatus = 'error'
+        this.error = messageOf(error)
+        throw error
+      }
+    },
+    async loadArrangePreview(id = this.selectedCompetitionId, seed = Date.now()) {
+      if (!id) return
+      this.arrangePreviewStatus = 'loading'
+      this.arrangeSeed = seed
+      this.error = ''
+      try {
+        this.arrangePreview = await api.get<ArrangePreview>(`/admin/competitions/${id}/arrangement-preview?seed=${seed}`)
+        this.arrangePreviewStatus = this.arrangePreview?.matches?.length ? 'success' : 'empty'
+      } catch (error) {
+        this.arrangePreview = null
+        this.arrangePreviewStatus = 'error'
+        this.error = messageOf(error)
+        throw error
+      }
+    },
+    async confirmArrangement(id = this.selectedCompetitionId) {
+      if (!id) return
+      const expected = this.arrangePreview?.matches.length || 0
+      this.arrangeResult = null
+      await this.run(async () => {
+        await api.post(`/admin/competitions/${id}/arrange`, { seed: this.arrangeSeed })
+        const schedule = await api.get<Match[]>(`/competitions/${id}/schedule`)
+        this.schedule = schedule || []
+        this.arrangeResult = { expected, actual: this.schedule.length, consistent: expected === this.schedule.length }
+        this.selectedCompetition = await api.get<Competition>(`/competitions/${id}`)
+        await this.loadCompetitions().catch(() => undefined)
+        await this.loadCompetitionEntries(id).catch(() => undefined)
+      }, '正式赛程已生成')
+    },
     async selectCompetition(id: string) {
       this.selectedCompetitionId = id
       await this.loadCompetitionDetail(id)
@@ -541,6 +635,7 @@ export const useAppStore = defineStore('app', {
       this.selectedCompetition = detail
       this.schedule = schedule || []
       this.entries = entries || []
+      this.entriesStatus = this.entries.length ? 'success' : 'empty'
       this.selectedCompetitionId = id
     },
     async competitionCommand(action: 'publish' | 'close-registration' | 'arrange' | 'start' | 'enter-result-confirming' | 'finalize', seed?: number) {
@@ -798,16 +893,31 @@ export const useAppStore = defineStore('app', {
       }
     },
     async readNotification(id: string) {
-      await this.run(async () => {
+      this.error = ''
+      this.success = ''
+      try {
         await api.post(`/notifications/${id}/read`)
-        await this.loadPrivate()
-      }, '通知已读')
+        const target = this.notifications.find(item => item.id === id)
+        if (target) target.read_at = new Date().toISOString()
+        this.notificationsStatus = this.notifications.length ? 'success' : 'empty'
+        this.success = '已标记为已读'
+      } catch (error) {
+        this.error = messageOf(error)
+        throw error
+      }
     },
     async readAllNotifications() {
-      await this.run(async () => {
+      this.error = ''
+      this.success = ''
+      try {
         await api.post('/notifications/read-all')
-        await this.loadPrivate()
-      }, '通知已全部标记为已读')
+        const now = new Date().toISOString()
+        this.notifications = this.notifications.map(item => item.read_at ? item : { ...item, read_at: now })
+        this.success = '通知已全部标记为已读'
+      } catch (error) {
+        this.error = messageOf(error)
+        throw error
+      }
     }
   }
 })
