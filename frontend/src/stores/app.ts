@@ -38,6 +38,39 @@ export type CompetitionEntry = {
   nickname?: string
   real_name?: string
   seed_number?: number
+  registered_at?: string
+  approved_at?: string
+}
+
+export type ArrangePreviewMatch = {
+  round: number
+  match: number
+  playerA?: string | null
+  playerB?: string | null
+  bye?: boolean
+  nextMatch?: number | null
+}
+
+export type ArrangePreview = {
+  format: string
+  seed: number
+  participantCount: number
+  matches: ArrangePreviewMatch[]
+}
+
+export type ArrangeResult = {
+  expected: number
+  actual: number
+  consistent: boolean
+}
+
+export type AppNotification = {
+  id: string
+  title: string
+  content: string
+  read_at?: string
+  created_at?: string
+  notification_type?: string
 }
 
 export type Match = {
@@ -104,6 +137,53 @@ export type MembershipApplication = {
   account?: string
 }
 
+export type ForumPost = {
+  id: string
+  author_user_id?: string
+  category?: string
+  title: string
+  content: string
+  status?: 'PUBLISHED' | 'HIDDEN' | 'DELETED'
+  created_at?: string
+  updated_at?: string
+}
+
+export type ForumComment = {
+  id: string
+  post_id: string
+  author_user_id: string
+  content: string
+  created_at?: string
+}
+
+export type ForumReportStatus = 'PENDING' | 'HIDDEN' | 'DISMISSED'
+
+export type ForumReport = {
+  id: string
+  post_id: string
+  reporter_user_id?: string
+  reason: string
+  status: ForumReportStatus
+  created_at?: string
+  reviewed_by?: string
+  reviewed_at?: string
+  review_note?: string
+  post_title?: string
+  post_content?: string
+  post_status?: string
+}
+
+export type PageResult<T> = {
+  items: T[]
+  page: number
+  size: number
+  total: number
+  pages: number
+}
+
+const COMMENT_PAGE_SIZE = 20
+const FORUM_PAGE_SIZE = 20
+
 export type SectionStatus = 'idle' | 'loading' | 'success' | 'empty' | 'error'
 
 function messageOf(error: unknown) {
@@ -114,6 +194,15 @@ function messageOf(error: unknown) {
   if (apiError.statusCode === 422) return '提交内容不符合业务规则，请检查后重试'
   if (apiError.statusCode && apiError.statusCode >= 500) return '服务暂时不可用，请稍后重试'
   return '暂时无法完成操作，请稍后重试'
+}
+
+function forumMessageOf(error: unknown) {
+  const apiError = error as ApiError
+  if (apiError.code === 'FORUM_REPORT_DUPLICATE') return '你已经举报过该帖子，处理结果会显示在这里'
+  if (apiError.code === 'FORUM_REPORT_ALREADY_REVIEWED') return '该举报已被处理，请刷新列表'
+  if (apiError.code === 'FORUM_POST_NOT_FOUND') return '帖子已被隐藏或删除'
+  if (apiError.code === 'FORUM_COMMENT_NOT_FOUND') return '该评论已不存在'
+  return messageOf(error)
 }
 
 function loadToken(name: string) {
@@ -160,14 +249,41 @@ export const useAppStore = defineStore('app', {
     announcements: [] as Post[],
     playPosts: [] as Post[],
     marketPosts: [] as Post[],
-    notifications: [] as Array<{ id: string; title: string; content: string; read_at?: string }>,
+    notifications: [] as AppNotification[],
     qr: null as { token: string; expiresIn: number } | null,
     adminAccess: false,
+    arrangePreview: null as ArrangePreview | null,
+    arrangePreviewStatus: 'idle' as SectionStatus,
+    arrangeSeed: 0,
+    arrangeResult: null as ArrangeResult | null,
+    entriesStatus: 'idle' as SectionStatus,
+    notificationsStatus: 'idle' as SectionStatus,
+    forumPosts: [] as ForumPost[],
+    forumPostsPage: 1,
+    forumPostsPages: 1,
+    forumPost: null as ForumPost | null,
+    forumPostStatus: 'idle' as SectionStatus,
+    forumComments: [] as ForumComment[],
+    forumCommentsPage: 1,
+    forumCommentsPages: 1,
+    forumCommentsTotal: 0,
+    forumCommentsStatus: 'idle' as SectionStatus,
+    forumCommentSubmitting: false,
+    forumReport: null as ForumReport | null,
+    forumReports: [] as ForumReport[],
+    forumReportsFilter: 'PENDING' as ForumReportStatus,
+    forumReportsPage: 1,
+    forumReportsPages: 1,
+    forumReportsTotal: 0,
+    forumReportsStatus: 'idle' as SectionStatus,
+    forumModerateAccess: false,
+    forumModerateChecked: false,
     competitionsStatus: 'idle' as SectionStatus,
     leaderboardStatus: 'idle' as SectionStatus,
     announcementsStatus: 'idle' as SectionStatus,
     playPostsStatus: 'idle' as SectionStatus,
     marketPostsStatus: 'idle' as SectionStatus,
+    forumPostsStatus: 'idle' as SectionStatus,
     profileStatus: 'idle' as SectionStatus,
     ratingSummaryStatus: 'idle' as SectionStatus,
     health: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
@@ -187,6 +303,15 @@ export const useAppStore = defineStore('app', {
     selectedStatus: (state) => state.selectedCompetition?.status || '未选择',
     completedMatches: (state) => state.schedule.filter(item => item.status === 'COMPLETED').length,
     playableMatches: (state) => state.schedule.filter(item => item.status === 'READY' || item.status === 'PLAYING'),
+    canModerateForum: (state) => state.forumModerateAccess,
+    unreadNotificationCount: (state) => state.notifications.filter(item => !item.read_at).length,
+    approvedEntryCount: (state) => state.entries.filter(item => item.status === 'APPROVED').length,
+    pendingEntryCount: (state) => state.entries.filter(item => item.status === 'PENDING').length,
+    rejectedEntryCount: (state) => state.entries.filter(item => item.status === 'REJECTED').length,
+    arrangePreviewRounds: (state) => state.arrangePreview && state.arrangePreview.matches.length
+      ? Math.max(...state.arrangePreview.matches.map(item => item.round))
+      : 0,
+    arrangePreviewByes: (state) => state.arrangePreview ? state.arrangePreview.matches.filter(item => item.bye).length : 0,
     userLabel: () => compactUser
   },
   actions: {
@@ -213,6 +338,20 @@ export const useAppStore = defineStore('app', {
       this.application = null
       this.adminApplications = []
       this.adminAccess = false
+      this.forumModerateAccess = false
+      this.forumModerateChecked = false
+      this.forumReports = []
+      this.forumReportsStatus = 'idle'
+      this.forumReport = null
+      this.forumPost = null
+      this.forumPostStatus = 'idle'
+      this.forumComments = []
+      this.forumCommentsStatus = 'idle'
+      this.notifications = []
+      this.notificationsStatus = 'idle'
+      this.arrangePreview = null
+      this.arrangePreviewStatus = 'idle'
+      this.arrangeResult = null
       this.qr = null
       this.profileStatus = 'idle'
       this.ratingSummaryStatus = 'idle'
@@ -329,7 +468,7 @@ export const useAppStore = defineStore('app', {
       const [ratingResult, historyResult, notificationsResult, applicationResult] = await Promise.allSettled([
         api.get<RatingAccount | null>('/ratings/me'),
         api.get<RatingLedger[]>('/ratings/me/history'),
-        api.get<Array<{ id: string; title: string; content: string; read_at?: string }>>('/notifications'),
+        api.get<AppNotification[]>('/notifications'),
         api.get<MembershipApplication>('/membership/applications/me')
       ])
       if (ratingResult.status === 'fulfilled') {
@@ -343,6 +482,9 @@ export const useAppStore = defineStore('app', {
       }
       this.ratingHistory = historyResult.status === 'fulfilled' ? historyResult.value || [] : []
       this.notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value || [] : []
+      this.notificationsStatus = notificationsResult.status === 'fulfilled'
+        ? (this.notifications.length ? 'success' : 'empty')
+        : 'error'
       this.application = applicationResult.status === 'fulfilled' ? applicationResult.value : null
       try {
         this.adminApplications = await api.get<MembershipApplication[]>('/admin/membership/applications')
@@ -351,6 +493,7 @@ export const useAppStore = defineStore('app', {
         this.adminApplications = []
         this.adminAccess = false
       }
+      await this.loadForumModerateAccess()
     },
     async register(account: string, password: string, nickname: string) {
       await this.run(async () => {
@@ -436,6 +579,48 @@ export const useAppStore = defineStore('app', {
         await this.loadCompetitionDetail()
       }, approve ? '报名已通过' : '报名已拒绝')
     },
+    async loadCompetitionEntries(id = this.selectedCompetitionId) {
+      if (!id) return
+      this.entriesStatus = 'loading'
+      try {
+        this.entries = await api.get<CompetitionEntry[]>(`/admin/competitions/${id}/entries`) || []
+        this.entriesStatus = this.entries.length ? 'success' : 'empty'
+      } catch (error) {
+        this.entries = []
+        this.entriesStatus = 'error'
+        this.error = messageOf(error)
+        throw error
+      }
+    },
+    async loadArrangePreview(id = this.selectedCompetitionId, seed = Date.now()) {
+      if (!id) return
+      this.arrangePreviewStatus = 'loading'
+      this.arrangeSeed = seed
+      this.error = ''
+      try {
+        this.arrangePreview = await api.get<ArrangePreview>(`/admin/competitions/${id}/arrangement-preview?seed=${seed}`)
+        this.arrangePreviewStatus = this.arrangePreview?.matches?.length ? 'success' : 'empty'
+      } catch (error) {
+        this.arrangePreview = null
+        this.arrangePreviewStatus = 'error'
+        this.error = messageOf(error)
+        throw error
+      }
+    },
+    async confirmArrangement(id = this.selectedCompetitionId) {
+      if (!id) return
+      const expected = this.arrangePreview?.matches.length || 0
+      this.arrangeResult = null
+      await this.run(async () => {
+        await api.post(`/admin/competitions/${id}/arrange`, { seed: this.arrangeSeed })
+        const schedule = await api.get<Match[]>(`/competitions/${id}/schedule`)
+        this.schedule = schedule || []
+        this.arrangeResult = { expected, actual: this.schedule.length, consistent: expected === this.schedule.length }
+        this.selectedCompetition = await api.get<Competition>(`/competitions/${id}`)
+        await this.loadCompetitions().catch(() => undefined)
+        await this.loadCompetitionEntries(id).catch(() => undefined)
+      }, '正式赛程已生成')
+    },
     async selectCompetition(id: string) {
       this.selectedCompetitionId = id
       await this.loadCompetitionDetail(id)
@@ -450,6 +635,7 @@ export const useAppStore = defineStore('app', {
       this.selectedCompetition = detail
       this.schedule = schedule || []
       this.entries = entries || []
+      this.entriesStatus = this.entries.length ? 'success' : 'empty'
       this.selectedCompetitionId = id
     },
     async competitionCommand(action: 'publish' | 'close-registration' | 'arrange' | 'start' | 'enter-result-confirming' | 'finalize', seed?: number) {
@@ -555,17 +741,183 @@ export const useAppStore = defineStore('app', {
         await this.loadMarketPosts().catch(() => undefined)
       }, '已标记售出')
     },
+    async loadForumPosts(page = 1, append = false) {
+      if (!append) this.forumPostsStatus = 'loading'
+      try {
+        const result = await api.get<PageResult<ForumPost>>(`/forum/posts?page=${page}&size=${FORUM_PAGE_SIZE}`)
+        const items = result?.items || []
+        this.forumPosts = append ? [...this.forumPosts, ...items] : items
+        this.forumPostsPage = result?.page || page
+        this.forumPostsPages = Math.max(1, result?.pages || 1)
+        this.forumPostsStatus = this.forumPosts.length ? 'success' : 'empty'
+      } catch (error) {
+        if (!append) this.forumPostsStatus = 'error'
+        console.error('[forum-posts] load failed', error)
+        throw error
+      }
+    },
+    async loadForumPost(postId: string) {
+      this.forumPostStatus = 'loading'
+      this.forumPost = null
+      this.forumReport = null
+      this.forumComments = []
+      this.forumCommentsPage = 1
+      this.forumCommentsPages = 1
+      this.forumCommentsTotal = 0
+      this.forumCommentsStatus = 'idle'
+      try {
+        this.forumPost = await api.get<ForumPost>(`/forum/posts/${postId}`)
+        this.forumPostStatus = 'success'
+      } catch (error) {
+        const apiError = error as ApiError
+        this.forumPostStatus = apiError.statusCode === 404 ? 'empty' : 'error'
+        console.error('[forum-post] load failed', error)
+        if (apiError.statusCode !== 404) throw error
+      }
+    },
+    async loadForumComments(postId: string, page = 1, append = false) {
+      if (!append) this.forumCommentsStatus = 'loading'
+      try {
+        const result = await api.get<PageResult<ForumComment>>(`/forum/posts/${postId}/comments?page=${page}&size=${COMMENT_PAGE_SIZE}`)
+        const items = result?.items || []
+        this.forumComments = append ? [...this.forumComments, ...items] : items
+        this.forumCommentsPage = result?.page || page
+        this.forumCommentsPages = Math.max(1, result?.pages || 1)
+        this.forumCommentsTotal = result?.total || 0
+        this.forumCommentsStatus = this.forumComments.length ? 'success' : 'empty'
+      } catch (error) {
+        if (!append) this.forumCommentsStatus = 'error'
+        console.error('[forum-comments] load failed', error)
+        throw error
+      }
+    },
+    async loadForumCommentsTail(postId: string) {
+      const probe = await api.get<PageResult<ForumComment>>(`/forum/posts/${postId}/comments?page=1&size=1`)
+      const lastPage = Math.max(1, Math.ceil((probe?.total || 0) / COMMENT_PAGE_SIZE))
+      await this.loadForumComments(postId, lastPage, false)
+    },
+    async publishForumComment(postId: string, content: string) {
+      this.forumCommentSubmitting = true
+      this.error = ''
+      this.success = ''
+      try {
+        await api.post<{ id: string }>(`/forum/posts/${postId}/comments`, { content: content.trim() })
+        this.success = '评论已发布'
+        await this.loadForumCommentsTail(postId)
+      } catch (error) {
+        this.error = forumMessageOf(error)
+        throw error
+      } finally {
+        this.forumCommentSubmitting = false
+      }
+    },
+    async removeForumComment(postId: string, commentId: string) {
+      this.error = ''
+      this.success = ''
+      try {
+        await api.delete(`/forum/posts/${postId}/comments/${commentId}`)
+        this.forumComments = this.forumComments.filter(item => item.id !== commentId)
+        this.forumCommentsTotal = Math.max(0, this.forumCommentsTotal - 1)
+        this.forumCommentsStatus = this.forumComments.length ? 'success' : 'empty'
+        this.success = '评论已删除'
+      } catch (error) {
+        this.error = forumMessageOf(error)
+        throw error
+      }
+    },
+    canDeleteForumComment(comment: ForumComment) {
+      if (!this.signedIn) return false
+      return comment.author_user_id === this.me?.id || this.forumModerateAccess
+    },
+    async reportForumPost(postId: string, reason: string) {
+      this.error = ''
+      this.success = ''
+      try {
+        const created = await api.post<{ id: string }>(`/forum/posts/${postId}/reports`, { reason: reason.trim() })
+        this.forumReport = await api.get<ForumReport>(`/forum/reports/${created.id}`)
+        this.success = '举报已提交，可在本页查看处理状态'
+      } catch (error) {
+        this.error = forumMessageOf(error)
+        throw error
+      }
+    },
+    async loadForumReports(status: ForumReportStatus = this.forumReportsFilter, page = 1) {
+      this.forumReportsFilter = status
+      this.forumReportsStatus = 'loading'
+      try {
+        const result = await api.get<PageResult<ForumReport>>(`/admin/forum/reports?status=${status}&page=${page}&size=${FORUM_PAGE_SIZE}`)
+        this.forumReports = result?.items || []
+        this.forumReportsPage = result?.page || page
+        this.forumReportsPages = Math.max(1, result?.pages || 1)
+        this.forumReportsTotal = result?.total || 0
+        this.forumReportsStatus = this.forumReports.length ? 'success' : 'empty'
+        this.forumModerateAccess = true
+        this.forumModerateChecked = true
+      } catch (error) {
+        const apiError = error as ApiError
+        this.forumReports = []
+        this.forumReportsStatus = 'error'
+        if (apiError.statusCode === 403) {
+          this.forumModerateAccess = false
+          this.forumModerateChecked = true
+        }
+        console.error('[forum-reports] load failed', error)
+        throw error
+      }
+    },
+    async reviewForumReport(reportId: string, action: 'HIDE' | 'DISMISS', note: string) {
+      this.error = ''
+      this.success = ''
+      try {
+        await api.put(`/admin/forum/reports/${reportId}`, { action, note: note.trim() })
+        this.success = action === 'HIDE' ? '已隐藏该内容，公开页面不再展示' : '已驳回该举报'
+        await this.loadForumReports(this.forumReportsFilter, this.forumReportsPage)
+      } catch (error) {
+        this.error = forumMessageOf(error)
+        throw error
+      }
+    },
+    async loadForumModerateAccess() {
+      if (!this.accessToken) {
+        this.forumModerateAccess = false
+        this.forumModerateChecked = true
+        return
+      }
+      try {
+        await api.get<PageResult<ForumReport>>('/admin/forum/reports?size=1')
+        this.forumModerateAccess = true
+      } catch (error) {
+        if ((error as ApiError).statusCode === 403) this.forumModerateAccess = false
+      } finally {
+        this.forumModerateChecked = true
+      }
+    },
     async readNotification(id: string) {
-      await this.run(async () => {
+      this.error = ''
+      this.success = ''
+      try {
         await api.post(`/notifications/${id}/read`)
-        await this.loadPrivate()
-      }, '通知已读')
+        const target = this.notifications.find(item => item.id === id)
+        if (target) target.read_at = new Date().toISOString()
+        this.notificationsStatus = this.notifications.length ? 'success' : 'empty'
+        this.success = '已标记为已读'
+      } catch (error) {
+        this.error = messageOf(error)
+        throw error
+      }
     },
     async readAllNotifications() {
-      await this.run(async () => {
+      this.error = ''
+      this.success = ''
+      try {
         await api.post('/notifications/read-all')
-        await this.loadPrivate()
-      }, '通知已全部标记为已读')
+        const now = new Date().toISOString()
+        this.notifications = this.notifications.map(item => item.read_at ? item : { ...item, read_at: now })
+        this.success = '通知已全部标记为已读'
+      } catch (error) {
+        this.error = messageOf(error)
+        throw error
+      }
     }
   }
 })

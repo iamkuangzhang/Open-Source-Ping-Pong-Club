@@ -12,26 +12,46 @@ import ErrorState from '../../components/ErrorState.vue'
 import { formatDate, go } from '../../utils/ui'
 
 const store = useAppStore()
-const tab = ref<'ANNOUNCEMENT' | 'MARKET'>('ANNOUNCEMENT')
+type CommunityTab = 'ANNOUNCEMENT' | 'FORUM' | 'MARKET'
+const tab = ref<CommunityTab>('ANNOUNCEMENT')
 const brokenMarketImages = ref<Set<string>>(new Set())
 const marketDescription = (content?: string) => (content || '器材详情以发布者说明为准').split(/[\n·]/)[0]
 const marketPrice = (price?: string) => price ? (price.startsWith('¥') ? price : `¥${price}`) : '价格面议'
 const sold = (status?: string) => status === 'SOLD'
 const hasMarketImage = (item: { id: string; image_url?: string }) => Boolean(item.image_url && !brokenMarketImages.value.has(item.id))
 const markMarketImageBroken = (id: string) => { brokenMarketImages.value = new Set([...brokenMarketImages.value, id]) }
-const currentStatus = computed(() => tab.value === 'ANNOUNCEMENT' ? store.announcementsStatus : store.marketPostsStatus)
+const currentStatus = computed(() => tab.value === 'ANNOUNCEMENT' ? store.announcementsStatus : tab.value === 'FORUM' ? store.forumPostsStatus : store.marketPostsStatus)
+const sectionTitle = computed(() => tab.value === 'ANNOUNCEMENT' ? '开源乓协公告' : tab.value === 'FORUM' ? '球友交流' : '二手器材')
+const sectionSubtitle = computed(() => tab.value === 'ANNOUNCEMENT' ? '活动、赛事与成员通知' : tab.value === 'FORUM' ? '发帖交流、评论互动' : '球友发布的闲置器材信息')
+const loadingText = computed(() => tab.value === 'ANNOUNCEMENT' ? '正在加载公告' : tab.value === 'FORUM' ? '正在加载帖子' : '正在加载二手信息')
+const errorTitle = computed(() => tab.value === 'ANNOUNCEMENT' ? '暂时无法加载公告' : tab.value === 'FORUM' ? '暂时无法加载帖子' : '暂时无法加载二手信息')
 onMounted(() => store.bootstrap())
+
+function selectTab(next: CommunityTab) {
+  tab.value = next
+  if (next === 'FORUM' && store.forumPostsStatus === 'idle') store.loadForumPosts().catch(() => undefined)
+}
+
+function retryCurrent() {
+  if (tab.value === 'ANNOUNCEMENT') return store.loadAnnouncements()
+  if (tab.value === 'FORUM') return store.loadForumPosts()
+  return store.loadMarketPosts()
+}
 </script>
 
 <template>
   <view class="app-shell community-home">
-    <AppHeader title="社区" subtitle="公告与校园二手" action-icon="notification" action-label="通知中心" @action="go(store.signedIn ? '/pages/community/notifications' : '/pages/auth/login')" />
-    <view class="segment community-tabs" role="tablist"><button :class="['segment-item', { active: tab === 'ANNOUNCEMENT' }]" @click="tab = 'ANNOUNCEMENT'">公告</button><button :class="['segment-item', { active: tab === 'MARKET' }]" @click="tab = 'MARKET'">二手</button></view>
+    <AppHeader title="社区" subtitle="公告、论坛与校园二手" action-icon="notification" action-label="通知中心" @action="go(store.signedIn ? '/pages/community/notifications' : '/pages/auth/login')" />
+    <view class="segment community-tabs" role="tablist">
+      <button :class="['segment-item', { active: tab === 'ANNOUNCEMENT' }]" @click="selectTab('ANNOUNCEMENT')">公告</button>
+      <button :class="['segment-item', { active: tab === 'FORUM' }]" @click="selectTab('FORUM')">论坛</button>
+      <button :class="['segment-item', { active: tab === 'MARKET' }]" @click="selectTab('MARKET')">二手</button>
+    </view>
 
     <view class="section community-section">
-      <SectionHeader :title="tab === 'ANNOUNCEMENT' ? '开源乓协公告' : '二手器材'" :subtitle="tab === 'ANNOUNCEMENT' ? '活动、赛事与成员通知' : '球友发布的闲置器材信息'" />
-      <LoadingState v-if="currentStatus === 'loading'" :variant="tab === 'MARKET' ? 'list' : 'inline'" :text="tab === 'MARKET' ? '正在加载二手信息' : '正在加载公告'" />
-      <ErrorState v-else-if="currentStatus === 'error'" :title="tab === 'MARKET' ? '暂时无法加载二手信息' : '暂时无法加载公告'" description="请稍后重试" @retry="tab === 'MARKET' ? store.loadMarketPosts() : store.loadAnnouncements()" />
+      <SectionHeader :title="sectionTitle" :subtitle="sectionSubtitle" />
+      <LoadingState v-if="currentStatus === 'loading'" :variant="tab === 'MARKET' ? 'list' : 'inline'" :text="loadingText" />
+      <ErrorState v-else-if="currentStatus === 'error'" :title="errorTitle" description="请稍后重试" @retry="retryCurrent" />
 
       <template v-else-if="tab === 'ANNOUNCEMENT'">
         <EmptyState v-if="!store.announcements.length" title="暂无公告" description="新的通知会显示在这里" icon="announcement" />
@@ -39,6 +59,21 @@ onMounted(() => store.bootstrap())
           <view v-for="item in store.announcements" :key="item.id" class="feed-row" @click="go('/pages/community/announcement-detail', { id: item.id })">
             <view class="feed-copy"><text class="feed-title">{{ item.title }}</text><text class="feed-summary">{{ item.content }}</text><text class="feed-date">{{ formatDate(item.created_at, false) }}</text></view><AppIcon name="chevron-right" size="sm" />
           </view>
+        </view>
+      </template>
+
+      <template v-else-if="tab === 'FORUM'">
+        <EmptyState v-if="!store.forumPosts.length" title="暂无帖子" description="球友发布的新帖会显示在这里" icon="community" />
+        <view v-else class="announcement-feed">
+          <view v-for="item in store.forumPosts" :key="item.id" class="feed-row" @click="go('/pages/community/post-detail', { id: item.id })">
+            <view class="feed-copy">
+              <text class="feed-title">{{ item.title }}</text>
+              <text class="feed-summary">{{ item.content }}</text>
+              <text class="feed-date">{{ item.category ? `${item.category} · ` : '' }}{{ formatDate(item.created_at, false) }}</text>
+            </view>
+            <AppIcon name="chevron-right" size="sm" />
+          </view>
+          <button v-if="store.forumPostsPage < store.forumPostsPages" class="btn btn-secondary btn-block load-more" @click="store.loadForumPosts(store.forumPostsPage + 1, true)">加载更多帖子</button>
         </view>
       </template>
 
@@ -65,6 +100,7 @@ onMounted(() => store.bootstrap())
 .feed-summary { display: -webkit-box; margin-top: .3rem; overflow: hidden; color: #66706b; font-size: .8125rem; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .feed-date { display: block; margin-top: .38rem; color: #87908b; font-size: .75rem; }
 .market-grid { margin-top: .7rem; }
+.load-more { margin-top: .85rem; }
 .market-card { position: relative; }
 .market-image { position: relative; background: #e8ede9; }
 .market-photo { width: 100%; height: 100%; }
