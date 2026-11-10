@@ -16,6 +16,7 @@
     { "path": "pages/play/detail", "style": { "navigationStyle": "custom" } },
     { "path": "pages/play/create", "style": { "navigationStyle": "custom" } },
     { "path": "pages/community/announcement-detail", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/community/post-detail", "style": { "navigationStyle": "custom" } },
     { "path": "pages/community/market-detail", "style": { "navigationStyle": "custom" } },
     { "path": "pages/community/market-create", "style": { "navigationStyle": "custom" } },
     { "path": "pages/community/notifications", "style": { "navigationStyle": "custom" } },
@@ -26,7 +27,8 @@
     { "path": "pages/rating/mine", "style": { "navigationStyle": "custom" } },
     { "path": "pages/profile/edit", "style": { "navigationStyle": "custom" } },
     { "path": "pages/admin/index", "style": { "navigationStyle": "custom" } },
-    { "path": "pages/admin/membership-review", "style": { "navigationStyle": "custom" } }
+    { "path": "pages/admin/membership-review", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/admin/forum-reports", "style": { "navigationStyle": "custom" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
