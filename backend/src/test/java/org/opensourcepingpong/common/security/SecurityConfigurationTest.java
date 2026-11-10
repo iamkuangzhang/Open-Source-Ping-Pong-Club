@@ -13,7 +13,9 @@ import org.opensourcepingpong.membership.MemberQrService;
 import org.opensourcepingpong.organization.AuthorizationService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.opensourcepingpong.competition.ScheduleService;
+import org.opensourcepingpong.competition.ScoreSubmissionService;
 import org.opensourcepingpong.rating.RatingSettlementService;
+import org.opensourcepingpong.registration.RegistrationService;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,6 +34,8 @@ class SecurityConfigurationTest {
     @MockBean AuthorizationService authorizationService;
     @MockBean JdbcTemplate jdbcTemplate;
     @MockBean ScheduleService scheduleService;
+    @MockBean ScoreSubmissionService scoreSubmissionService;
+    @MockBean RegistrationService registrationService;
     @MockBean RatingSettlementService ratingSettlementService;
     @Autowired MockMvc mockMvc;
 

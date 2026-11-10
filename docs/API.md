@@ -101,6 +101,14 @@ Refresh Token：30 天
 - POST `/admin/competition-entries/{entryId}/approve`
 - POST `/admin/competition-entries/{entryId}/reject`
 
+Sprint 3 / E6-B：
+- POST `/events/{id}/registrations`
+- POST `/registrations/{id}/pay`
+- DELETE `/registrations/{id}`
+- GET `/me/registrations`
+
+详见 `SPRINT3_REGISTRATION_SCORE_API.md`。
+
 ## 9. 单场比赛
 
 - GET `/matches/{id}`
@@ -114,6 +122,15 @@ Refresh Token：30 天
 版本冲突：
 - HTTP 409
 - `MATCH_VERSION_CONFLICT`
+
+Sprint 3 / E6-D：
+- POST `/matches/{id}/scores`
+- PUT `/matches/{id}/scores`
+- POST `/admin/matches/{id}/walkover`
+- POST `/admin/matches/{id}/retirement`
+- GET `/events/{id}/bracket`
+
+详见 `SPRINT3_REGISTRATION_SCORE_API.md`。
 
 ## 10. 积分
 
@@ -207,10 +224,19 @@ V1 不存在支付、订单、退款 API。
 - COMPETITION_INSUFFICIENT_PARTICIPANTS
 - COMPETITION_ALREADY_FINALIZED
 - ENTRY_NOT_FOUND
+- REG_DUPLICATE
+- REG_NOT_ELIGIBLE
+- REG_CREDIT_TOO_LOW
+- REG_WITHDRAW_TOO_LATE
+- REGISTRATION_LIMIT_EXCEEDED
 - MATCH_NOT_FOUND
 - MATCH_INVALID_STATE
 - MATCH_INVALID_SCORE
 - MATCH_VERSION_CONFLICT
+- MATCH_ALREADY_SETTLED
+- MATCH_SCORE_CHANGE_PENDING
+- MATCH_SCORE_REQUIRES_REASON
+- MATCH_ADVANCEMENT_LOCKED
 - RATING_ACCOUNT_NOT_FOUND
 - RATING_ALREADY_SETTLED
 - PLAY_POST_FULL
