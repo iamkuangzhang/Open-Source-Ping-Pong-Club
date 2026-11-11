@@ -65,4 +65,29 @@ class CompetitionControllerTest {
         () -> controller.close(principal, competition)).code());
     verifyNoInteractions(jdbc);
   }
+
+  @Test void myEntryReturnsCurrentUserRegistration() {
+    Map<String,Object> entry = new HashMap<>();
+    entry.put("id", UUID.randomUUID()); entry.put("user_id", user); entry.put("status", "PENDING");
+    when(jdbc.queryForList(contains("competition_entries"), eq(competition), eq(user)))
+        .thenReturn(List.of(entry));
+    assertEquals(entry, controller.myEntry(principal, competition).data());
+  }
+
+  @Test void myEntryIsNullWhenUserHasNotRegistered() {
+    when(jdbc.queryForList(contains("competition_entries"), eq(competition), eq(user)))
+        .thenReturn(List.of());
+    assertNull(controller.myEntry(principal, competition).data());
+  }
+
+  @Test void anonymousRequestForMyEntryNeverQueriesDatabase() {
+    assertNull(controller.myEntry(null, competition).data());
+    verifyNoInteractions(jdbc);
+  }
+
+  @Test void myEntryOnlyReadsCurrentUserRows() {
+    when(jdbc.queryForList(contains("competition_entries"), eq(competition), eq(user))).thenReturn(List.of());
+    controller.myEntry(principal, competition);
+    verify(jdbc).queryForList(contains("user_id=?"), eq(competition), eq(user));
+  }
 }
