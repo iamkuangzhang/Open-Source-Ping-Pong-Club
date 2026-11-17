@@ -36,6 +36,10 @@ async function publish() {
         <view><text class="row-title">成员审核</text><text class="row-meta">{{ store.adminApplications.length }} 项待处理</text></view>
         <AppIcon name="chevron-right" />
       </view>
+      <view v-if="store.canModerateForum" class="admin-row" @click="go('/pages/admin/forum-reports')">
+        <view><text class="row-title">内容治理</text><text class="row-meta">处理论坛举报，隐藏违规内容</text></view>
+        <AppIcon name="chevron-right" />
+      </view>
       <view class="admin-row" @click="go('/pages/competition/create')">
         <view><text class="row-title">创建赛事</text><text class="row-meta">创建单淘汰或小组循环比赛</text></view>
         <AppIcon name="chevron-right" />

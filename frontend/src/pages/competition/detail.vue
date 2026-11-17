@@ -15,7 +15,14 @@ const store = useAppStore()
 const id = ref('')
 const failed = ref(false)
 const detail = computed(() => store.selectedCompetition)
-const myEntry = computed(() => store.entries.find((entry) => entry.user_id === store.me?.id))
+const myEntry = computed(() => store.myEntry)
+const entryStatusText = computed(() => ({ PENDING: '报名待审核', APPROVED: '报名已通过', REJECTED: '报名未通过' } as Record<string, string>)[myEntry.value?.status || ''] || '已提交报名')
+const registrationOpen = computed(() => {
+  if (detail.value?.status !== 'REGISTRATION') return false
+  const end = detail.value.registration_end
+  return !end || new Date(end).getTime() > Date.now()
+})
+const closedHint = computed(() => detail.value?.status === 'DRAFT' ? '尚未开放报名' : detail.value?.status === 'REGISTRATION' ? '报名时间已结束' : '报名已截止')
 
 async function load() {
   failed.value = false
@@ -36,6 +43,10 @@ async function join() {
   if (!store.signedIn) return go('/pages/auth/login')
   try { await store.joinCompetition(id.value) } catch { /* Store renders the API error. */ }
 }
+
+async function leave() {
+  try { await store.leaveCompetition(id.value) } catch { /* Store renders the API error. */ }
+}
 </script>
 
 <template>
@@ -51,8 +62,12 @@ async function join() {
         <text class="meta">{{ detail.location || '地点待定' }}</text>
         <text class="meta">{{ detail.format === 'ROUND_ROBIN' ? '小组循环' : '单淘汰' }} · {{ detail.best_of || 3 }}局制</text>
         <view class="join-line">
-          <text>{{ store.canManage ? `${store.entries.length} / ` : '上限 ' }}{{ detail.max_participants || '—' }} 人</text>
-          <button v-if="detail.status === 'REGISTRATION'" :class="['btn btn-small', (myEntry || store.joinedCompetitionIds.includes(id)) ? 'btn-secondary' : 'btn-primary']" @click="(myEntry || store.joinedCompetitionIds.includes(id)) ? store.leaveCompetition(id) : join()">{{ (myEntry || store.joinedCompetitionIds.includes(id)) ? '退出报名' : '立即报名' }}</button>
+          <view class="join-copy">
+            <text>{{ store.canManage ? `${store.entries.length} / ` : '上限 ' }}{{ detail.max_participants || '—' }} 人</text>
+            <text v-if="myEntry" class="entry-state">{{ entryStatusText }}</text>
+          </view>
+          <button v-if="registrationOpen" :class="['btn btn-small', myEntry ? 'btn-secondary' : 'btn-primary']" :disabled="store.loading" @click="myEntry ? leave() : join()">{{ myEntry ? '退出报名' : store.signedIn ? '立即报名' : '登录后报名' }}</button>
+          <text v-else class="closed-hint">{{ closedHint }}</text>
         </view>
       </view>
       <view v-if="store.success" class="notice notice-success">{{ store.success }}</view>
@@ -83,6 +98,9 @@ async function join() {
 .detail-title { display: block; margin: 1rem 0; font-size: 1.5rem; font-weight: 800; line-height: 1.35; }
 .meta { display: block; margin-top: .35rem; color: #66706b; font-size: .875rem; }
 .join-line { margin-top: 1.25rem; font-size: .8125rem; font-weight: 600; }
+.join-copy { display: flex; min-width: 0; flex-direction: column; gap: .2rem; }
+.entry-state { color: #2f6a52; font-size: .75rem; font-weight: 700; }
+.closed-hint { color: #7a837e; font-size: .75rem; font-weight: 600; }
 .detail-section { padding: 1.5rem 0; border-bottom: 1px solid #e7eae8; }
 .body-copy { display: block; margin-top: .75rem; }
 .participant-grid { display: grid; margin-top: .75rem; grid-template-columns: repeat(2, 1fr); gap: .75rem; color: #444d49; font-size: .875rem; }
