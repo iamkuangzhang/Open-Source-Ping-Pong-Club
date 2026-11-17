@@ -4,11 +4,30 @@ import { onLoad } from '@dcloudio/uni-app'
 import AppHeader from '../../components/AppHeader.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import LoadingState from '../../components/LoadingState.vue'
+import ErrorState from '../../components/ErrorState.vue'
 import type { Match } from '../../stores/app'
 import { api } from '../../services/api'
 
 const item = ref<Match | null>(null)
-onLoad(async (query) => { item.value = await api.get(`/matches/${query?.id}`) })
+const id = ref('')
+const status = ref<'loading' | 'success' | 'error'>('loading')
+
+async function load() {
+  status.value = 'loading'
+  try {
+    item.value = await api.get<Match>(`/matches/${id.value}`)
+    status.value = item.value ? 'success' : 'error'
+  } catch {
+    item.value = null
+    status.value = 'error'
+  }
+}
+
+onLoad((query) => {
+  id.value = String(query?.id || '')
+  load()
+})
+
 const playerName = (id?: string) => id ? `球友 ${id.slice(0, 5)}` : 'BYE'
 const resultText = (value?: string) => ({ NORMAL: '正常完赛', WALKOVER: '弃权胜', BYE: '轮空晋级' } as Record<string, string>)[value || ''] || '等待比赛'
 </script>
@@ -16,8 +35,9 @@ const resultText = (value?: string) => ({ NORMAL: '正常完赛', WALKOVER: '弃
 <template>
   <view class="app-shell no-tabs">
     <AppHeader title="场次详情" backable />
-    <LoadingState v-if="!item" />
-    <template v-else>
+    <LoadingState v-if="status === 'loading'" />
+    <ErrorState v-else-if="status === 'error'" title="暂时无法加载场次" description="对阵可能已被重新编排" @retry="load" />
+    <template v-else-if="item">
       <view class="match-title"><text>第 {{ item.round_number }} 轮 · 第 {{ item.match_number }} 场</text><StatusBadge :status="item.status" /></view>
       <view class="versus">
         <view :class="{ winner: item.winner_user_id === item.player_a_user_id }"><text class="name">{{ playerName(item.player_a_user_id) }}</text><text class="score">{{ item.player_a_games ?? '—' }}</text></view>

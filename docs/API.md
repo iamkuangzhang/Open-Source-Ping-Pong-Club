@@ -96,6 +96,7 @@ Refresh Token：30 天
 ## 8. 比赛报名
 
 - POST `/competitions/{id}/entries`
+- GET `/competitions/{id}/entries/me`
 - DELETE `/competitions/{id}/entries/me`
 - GET `/admin/competitions/{id}/entries`
 - POST `/admin/competition-entries/{entryId}/approve`
@@ -203,6 +204,7 @@ V1 不存在支付、订单、退款 API。
 - COMPETITION_INVALID_STATE
 - COMPETITION_REGISTRATION_CLOSED
 - COMPETITION_FULL
+- COMPETITION_CAPACITY_BELOW_ENTRIES
 - COMPETITION_ALREADY_REGISTERED
 - COMPETITION_INSUFFICIENT_PARTICIPANTS
 - COMPETITION_ALREADY_FINALIZED
