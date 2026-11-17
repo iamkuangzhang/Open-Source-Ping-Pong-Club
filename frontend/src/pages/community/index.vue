@@ -26,6 +26,7 @@ onMounted(() => store.bootstrap())
 <template>
   <view class="app-shell community-home">
     <AppHeader title="社区" subtitle="公告与校园二手" action-icon="notification" action-label="通知中心" @action="go(store.signedIn ? '/pages/community/notifications' : '/pages/auth/login')" />
+    <view class="forum-entry" @click="go('/pages/forum/index')"><view class="forum-entry-copy"><text class="forum-entry-title">球友论坛</text><text class="forum-entry-desc">发帖交流、约球组队与内容治理</text></view><AppIcon name="chevron-right" size="sm" /></view>
     <view class="segment community-tabs" role="tablist"><button :class="['segment-item', { active: tab === 'ANNOUNCEMENT' }]" @click="tab = 'ANNOUNCEMENT'">公告</button><button :class="['segment-item', { active: tab === 'MARKET' }]" @click="tab = 'MARKET'">二手</button></view>
 
     <view class="section community-section">
@@ -57,6 +58,10 @@ onMounted(() => store.bootstrap())
 </template>
 
 <style scoped lang="scss">
+.forum-entry { display: flex; min-height: 3.75rem; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .75rem; padding: 0 1rem; background: #eef3f0; border: 1px solid #dce6e0; border-radius: .875rem; }
+.forum-entry-copy { display: flex; min-width: 0; flex-direction: column; }
+.forum-entry-title { color: #173f35; font-size: .9375rem; font-weight: 700; }
+.forum-entry-desc { margin-top: .15rem; color: #52635d; font-size: .75rem; }
 .community-section { margin-top: 1.25rem; }
 .announcement-feed { margin-top: .55rem; border-top: 1px solid #e2e7e3; }
 .feed-row { display: flex; min-height: 5.6rem; align-items: center; gap: .75rem; padding: .85rem 0; border-bottom: 1px solid #e2e7e3; }

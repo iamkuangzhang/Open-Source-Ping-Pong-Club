@@ -38,6 +38,10 @@ async function join(id: string) {
   if (!store.signedIn) return go('/pages/auth/login')
   try { await store.joinCompetition(id) } catch { /* Store renders feedback. */ }
 }
+
+async function leave(id: string) {
+  try { await store.leaveCompetition(id) } catch { /* Store renders feedback. */ }
+}
 </script>
 
 <template>
@@ -58,7 +62,7 @@ async function join(id: string) {
         <LoadingState v-if="store.competitionsStatus === 'loading'" variant="list" text="正在加载赛事" :rows="2" />
         <ErrorState v-else-if="store.competitionsStatus === 'error'" title="暂时无法加载赛事" description="请稍后重试，其他内容仍可查看" @retry="store.loadCompetitions()" />
         <EmptyState v-else-if="!visible.length" title="暂无赛事" description="当前筛选下还没有赛事" />
-        <CompetitionCard v-for="item in visible" v-else :key="item.id" :item="item" :joined="store.joinedCompetitionIds.includes(item.id)" @open="go('/pages/competition/detail', { id: item.id })" @join="join(item.id)" @leave="store.leaveCompetition(item.id)" />
+        <CompetitionCard v-for="item in visible" v-else :key="item.id" :item="item" :joined="store.joinedCompetitionIds.includes(item.id)" @open="go('/pages/competition/detail', { id: item.id })" @join="join(item.id)" @leave="leave(item.id)" />
         <button v-if="hasMoreFinished" class="history-link" @click="filter = 'FINISHED'"><text>查看全部已结束赛事</text><AppIcon name="chevron-right" size="sm" /></button>
       </view>
     </view>

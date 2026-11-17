@@ -96,6 +96,7 @@ Refresh Token：30 天
 ## 8. 比赛报名
 
 - POST `/competitions/{id}/entries`
+- GET `/competitions/{id}/entries/me`
 - DELETE `/competitions/{id}/entries/me`
 - GET `/admin/competitions/{id}/entries`
 - POST `/admin/competition-entries/{entryId}/approve`

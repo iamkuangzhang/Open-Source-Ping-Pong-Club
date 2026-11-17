@@ -108,6 +108,14 @@ export type SectionStatus = 'idle' | 'loading' | 'success' | 'empty' | 'error'
 
 function messageOf(error: unknown) {
   const apiError = error as ApiError
+  const businessMessages: Record<string, string> = {
+    COMPETITION_ALREADY_REGISTERED: '你已经报名该赛事，无需重复提交',
+    COMPETITION_FULL: '报名人数已满，暂时无法加入',
+    COMPETITION_REGISTRATION_CLOSED: '当前不在报名时间内，报名入口已关闭',
+    ENTRY_NOT_FOUND: '未找到你的报名记录，可能已被赛事方移除',
+    COMPETITION_INSUFFICIENT_PARTICIPANTS: '已通过审核的选手不足两人，暂时无法关闭报名'
+  }
+  if (apiError.code && businessMessages[apiError.code]) return businessMessages[apiError.code]
   if (apiError.statusCode === 401) return '登录状态已过期，请重新登录'
   if (apiError.statusCode === 403) return '当前账号没有执行该操作的权限'
   if (apiError.statusCode === 409) return '当前状态已发生变化，请刷新后重试'
@@ -155,6 +163,7 @@ export const useAppStore = defineStore('app', {
     selectedCompetitionId: '',
     selectedCompetition: null as Competition | null,
     entries: [] as CompetitionEntry[],
+    myEntry: null as CompetitionEntry | null,
     schedule: [] as Match[],
     leaderboard: [] as RatingAccount[],
     announcements: [] as Post[],
@@ -212,6 +221,8 @@ export const useAppStore = defineStore('app', {
       this.ratingHistory = []
       this.application = null
       this.adminApplications = []
+      this.myEntry = null
+      this.entries = []
       this.adminAccess = false
       this.qr = null
       this.profileStatus = 'idle'
@@ -442,15 +453,25 @@ export const useAppStore = defineStore('app', {
     },
     async loadCompetitionDetail(id = this.selectedCompetitionId) {
       if (!id) return
-      const [detail, schedule, entries] = await Promise.all([
+      const [detail, schedule, entries, myEntry] = await Promise.all([
         api.get<Competition>(`/competitions/${id}`),
         api.get<Match[]>(`/competitions/${id}/schedule`).catch(() => []),
-        api.get<CompetitionEntry[]>(`/admin/competitions/${id}/entries`).catch(() => [])
+        api.get<CompetitionEntry[]>(`/admin/competitions/${id}/entries`).catch(() => []),
+        this.signedIn ? api.get<CompetitionEntry | null>(`/competitions/${id}/entries/me`).catch(() => null) : Promise.resolve(null)
       ])
       this.selectedCompetition = detail
       this.schedule = schedule || []
       this.entries = entries || []
+      this.myEntry = myEntry || null
+      this.syncJoinedIds(id, Boolean(this.myEntry))
       this.selectedCompetitionId = id
+    },
+    /** 以服务端返回的本人报名记录为准，同步本地用于列表渲染的收藏式状态。 */
+    syncJoinedIds(id: string, joined: boolean) {
+      const contained = this.joinedCompetitionIds.includes(id)
+      if (joined && !contained) this.joinedCompetitionIds = [...this.joinedCompetitionIds, id]
+      if (!joined && contained) this.joinedCompetitionIds = this.joinedCompetitionIds.filter(item => item !== id)
+      uni.setStorageSync('joinedCompetitionIds', this.joinedCompetitionIds)
     },
     async competitionCommand(action: 'publish' | 'close-registration' | 'arrange' | 'start' | 'enter-result-confirming' | 'finalize', seed?: number) {
       const id = this.selectedCompetitionId
@@ -473,17 +494,13 @@ export const useAppStore = defineStore('app', {
     async joinCompetition(id: string) {
       await this.run(async () => {
         await api.post(`/competitions/${id}/entries`)
-        if (!this.joinedCompetitionIds.includes(id)) this.joinedCompetitionIds.push(id)
-        uni.setStorageSync('joinedCompetitionIds', this.joinedCompetitionIds)
-        await this.loadCompetitionDetail(id)
-      }, '报名成功')
+        await this.loadCompetitionDetail(id).catch(() => this.syncJoinedIds(id, true))
+      }, '报名成功，当前状态以赛事方审核结果为准')
     },
     async leaveCompetition(id: string) {
       await this.run(async () => {
         await api.delete(`/competitions/${id}/entries/me`)
-        this.joinedCompetitionIds = this.joinedCompetitionIds.filter(item => item !== id)
-        uni.setStorageSync('joinedCompetitionIds', this.joinedCompetitionIds)
-        await this.loadCompetitionDetail(id)
+        await this.loadCompetitionDetail(id).catch(() => this.syncJoinedIds(id, false))
       }, '已退出报名')
     },
     async scoreMatch(match: Match, games?: Array<{ a: number; b: number }>) {

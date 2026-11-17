@@ -4,6 +4,8 @@ import { onLoad } from '@dcloudio/uni-app'
 import AppHeader from '../../components/AppHeader.vue'
 import MatchCard from '../../components/MatchCard.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import LoadingState from '../../components/LoadingState.vue'
+import ErrorState from '../../components/ErrorState.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import { useAppStore } from '../../stores/app'
 import { go } from '../../utils/ui'
@@ -12,12 +14,24 @@ const store = useAppStore()
 const id = ref('')
 const tab = ref<'bracket' | 'list'>('bracket')
 const manage = ref(false)
+const status = ref<'loading' | 'success' | 'empty' | 'error'>('loading')
 
-onLoad(async (query) => {
+async function load() {
+  status.value = 'loading'
+  try {
+    await store.bootstrap()
+    if (!id.value) throw new Error('缺少赛事标识')
+    await store.selectCompetition(id.value)
+    status.value = store.schedule.length ? 'success' : 'empty'
+  } catch {
+    status.value = 'error'
+  }
+}
+
+onLoad((query) => {
   id.value = String(query?.id || '')
   manage.value = query?.manage === '1'
-  await store.bootstrap()
-  await store.selectCompetition(id.value)
+  load()
 })
 
 const rounds = computed(() => {
@@ -30,6 +44,8 @@ const rounds = computed(() => {
   return [...grouped.entries()].sort(([a], [b]) => a - b).map(([round, matches]) => ({ round, matches: matches.sort((a, b) => a.match_number - b.match_number) }))
 })
 const bracketHeight = computed(() => `${Math.max(1, rounds.value[0]?.matches.length || 1) * 6.75}rem`)
+const totalMatches = computed(() => rounds.value.reduce((sum, item) => sum + item.matches.length, 0))
+const longSchedule = computed(() => (rounds.value[0]?.matches.length || 0) > 8)
 
 function label(round: number) {
   const max = Math.max(...rounds.value.map((item) => item.round), 1)
@@ -43,9 +59,14 @@ function open(matchId: string) { go(manage.value ? '/pages/match/scoring' : '/pa
 <template>
   <view class="app-shell no-tabs bracket-page">
     <AppHeader title="淘汰赛对阵" subtitle="左右滑动查看完整晋级路径" backable />
+    <LoadingState v-if="status === 'loading'" variant="list" text="正在加载赛程" :rows="3" />
+    <ErrorState v-else-if="status === 'error'" title="暂时无法加载赛程" description="请稍后重试，赛事信息仍可查看" @retry="load" />
+    <EmptyState v-else-if="status === 'empty'" title="赛程尚未生成" :description="manage ? '报名关闭后可生成对阵，生成后本页自动展示' : '赛事组织方完成编排后会在这里展示对阵'" />
+    <template v-else>
     <view class="segment"><button :class="['segment-item', { active: tab === 'bracket' }]" @click="tab = 'bracket'">对阵图</button><button :class="['segment-item', { active: tab === 'list' }]" @click="tab = 'list'">场次列表</button></view>
-    <EmptyState v-if="!store.schedule.length" title="赛程尚未生成" />
-    <scroll-view v-else-if="tab === 'bracket'" class="bracket-scroll" scroll-x enhanced show-scrollbar="false">
+    <text class="schedule-tip">共 {{ totalMatches }} 场{{ longSchedule ? '，长赛程可左右滑动并上下滚动查看' : '' }}</text>
+    <view v-if="manage && !store.canManage" class="notice notice-error">当前账号没有赛事管理权限，仅可查看对阵，无法录入比分。</view>
+    <scroll-view v-if="tab === 'bracket'" class="bracket-scroll" scroll-x enhanced show-scrollbar="false">
       <view class="bracket" :style="{ height: bracketHeight }">
         <view v-for="(roundItem, roundIndex) in rounds" :key="roundItem.round" class="round">
           <text class="round-title">{{ label(roundItem.round) }}</text>
@@ -61,11 +82,13 @@ function open(matchId: string) { go(manage.value ? '/pages/match/scoring' : '/pa
       </view>
     </scroll-view>
     <view v-else class="section match-list"><MatchCard v-for="item in store.schedule" :key="item.id" :item="item" :label="label(item.round_number)" @open="open(item.id)" /></view>
+    </template>
   </view>
 </template>
 
 <style scoped lang="scss">
 .bracket-page { overflow-x: visible; }
+.schedule-tip { display: block; margin: .7rem 0 .1rem; color: #66706b; font-size: .75rem; line-height: 1.5; }
 .bracket-scroll { width: calc(100% + 2rem); margin: 1rem -1rem 0; }
 .bracket { display: flex; width: max-content; min-height: 30rem; gap: 2rem; padding: .25rem 1.25rem 1rem; }
 .round { display: flex; width: 13.5rem; flex-direction: column; }
